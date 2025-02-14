@@ -1,6 +1,9 @@
 # Ignorar la carpeta de archivos estáticos
 static/
 
+# Ignorar la carpeta de documentos
+documents/
+
 # Ignorar entornos virtuales de Python
 venv/
 .venv/
