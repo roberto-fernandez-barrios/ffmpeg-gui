@@ -19,7 +19,7 @@ class FFmpegGUI(QWidget):
     
     def init_ui(self):
         self.setWindowTitle("FFmpeg GUI")
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(100, 100, 400, 350)
 
         layout = QVBoxLayout()
 
@@ -46,7 +46,7 @@ class FFmpegGUI(QWidget):
         self.btn_select_audio.clicked.connect(self.select_audio_file)
         layout.addWidget(self.btn_select_audio)
 
-        # Formato de salida
+        # Formato de salida (códec / contenedor)
         self.img_format_label = QLabel("Formato de salida:")
         layout.addWidget(self.img_format_label)
 
@@ -114,7 +114,7 @@ class FFmpegGUI(QWidget):
         # Leemos FPS y audio
         fps = self.fps_input.text()
         audio_path = getattr(self, 'audio_path', None)
-        output_format = self.img_format_combo.currentText()
+        user_format = self.img_format_combo.currentText()
 
         # Contamos cuántas imágenes (asumiendo .png)
         images = sorted(os.listdir(self.image_folder))
@@ -125,10 +125,10 @@ class FFmpegGUI(QWidget):
 
         # Construimos el comando ffmpeg
         command, output_file = convert_images_to_video_command(
-            self.image_folder, fps, audio_path, output_format
+            self.image_folder, fps, audio_path, user_format
         )
         if not command:
-            self.status_label.setText("No se detectó el prefijo correcto en los archivos.")
+            self.status_label.setText("No se detectó el patrón correcto en las imágenes.")
             return
 
         # Creamos un hilo (Worker) para ejecutar ffmpeg y leer el progreso
@@ -169,8 +169,10 @@ class FFmpegGUI(QWidget):
             self.progress_bar.setValue(0)
             self.video_link_label.setVisible(False)
 
+
 # -----------------------------------------------------------------
 # CLASE QThread PARA EJECUTAR Y PARSEAR FFmpeg EN BACKGROUND (stderr)
+# + LOG DE SALIDA A ffmpeg.log
 # -----------------------------------------------------------------
 class FFmpegWorker(QThread):
     progressChanged = pyqtSignal(int)
@@ -191,6 +193,7 @@ class FFmpegWorker(QThread):
         """
         Ejecuta FFmpeg y parsea su salida (stderr) en tiempo real
         para capturar "frame=   XXX" y así calcular el progreso.
+        También escribe todo stderr y el comando en ffmpeg.log.
         """
         proc = subprocess.Popen(
             self.command,
@@ -198,31 +201,42 @@ class FFmpegWorker(QThread):
             stderr=subprocess.PIPE,
             universal_newlines=True,
             shell=False
-            # En Windows, para evitar ventana CMD: 
-            # creationflags=subprocess.CREATE_NO_WINDOW 
         )
 
-        while True:
-            line = proc.stderr.readline()
-            if not line:
-                break
+        # Abrimos el archivo de log en modo "append"
+        with open("ffmpeg.log", "a", encoding="utf-8") as log_file:
+            log_file.write("\n=== Iniciando FFmpeg Worker ===\n")
+            log_file.write("Comando: " + " ".join(self.command) + "\n\n")
 
-            # Buscar "frame=    12"
-            match = re.search(r"frame=\s*(\d+)", line)
-            if match:
-                current_frame = int(match.group(1))
-                # Calculamos porcentaje en base a total_frames
-                progress = int(current_frame / self.total_frames * 100)
-                self.progressChanged.emit(progress)
+            while True:
+                line = proc.stderr.readline()
+                if not line:
+                    break
 
-        proc.wait()
-        retcode = proc.returncode
-        success = (retcode == 0)
+                # Guardamos cada línea en el log
+                log_file.write(line)
 
+                # Buscar "frame=    12"
+                match = re.search(r"frame=\s*(\d+)", line)
+                if match:
+                    current_frame = int(match.group(1))
+                    progress = int(current_frame / self.total_frames * 100)
+                    self.progressChanged.emit(progress)
+
+            proc.wait()
+            retcode = proc.returncode
+            success = (retcode == 0)
+
+            if not success:
+                # Leemos cualquier resto de stderr
+                error_output = proc.stderr.read()
+                if error_output:
+                    log_file.write(error_output)
+
+            log_file.write(f"=== Proceso finalizado. Return code: {retcode} ===\n\n")
+
+        # Emitimos la señal final
         if success:
-            # Si todo fue bien, emitimos la ruta del archivo final
             self.finishedSignal.emit(True, self.output_file)
         else:
-            # Leemos el resto de stderr como error
-            error_output = proc.stderr.read()
             self.finishedSignal.emit(False, error_output or "Error en FFmpeg.")

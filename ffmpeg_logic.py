@@ -20,24 +20,46 @@ def detect_image_prefix(folder_path):
     return prefix, True
 
 
-def convert_images_to_video_command(folder_path, fps, audio_path=None, output_format="mp4"):
+def convert_images_to_video_command(folder_path, fps, audio_path=None, user_format="mp4 (H.264 8-bit)"):
     """
-    Construye el comando ffmpeg (en forma de lista) para generar un video
-    desde una secuencia de imágenes (prefijo%04d.png). Devuelve:
-      - command: lista con los parámetros para subprocess
+    Construye el comando (en forma de lista) para generar un video
+    desde una secuencia de imágenes (prefijo%04d.png) usando FFmpeg.
+
+    Devuelve:
+      - command: lista con los parámetros para subprocess.Popen
       - output_file: ruta final del video
-    NO ejecuta ffmpeg, solo prepara el comando.
+
+    No ejecuta ffmpeg; solo retorna el comando.
+
+    user_format puede ser:
+      - "mp4 (H.264 8-bit)"
+      - "mp4 (H.265)"
+      - "mp4 (H.264 10-bit)"
+      - "avi"
+      - "mkv"
+      - "mov"
     """
     # Detectar prefijo
     prefix, is_valid = detect_image_prefix(folder_path)
     if not is_valid:
-        # Si no se detectó patrón, devolvemos listas vacías
+        # Si no se detectó el patrón, devolvemos vacío
         return [], ""
 
-    # Nombre de salida
-    output_file = os.path.join(folder_path, f"video_output.{output_format}")
+    # Elegimos la extensión a partir del user_format.
+    # (Si prefieres algo más sofisticado, puedes mapear cada caso)
+    if user_format.startswith("mp4"):
+        extension = "mp4"
+    elif user_format == "avi":
+        extension = "avi"
+    elif user_format == "mkv":
+        extension = "mkv"
+    elif user_format == "mov":
+        extension = "mov"
+    else:
+        extension = "mp4"  # valor por defecto
 
-    # Construcción del comando
+    output_file = os.path.join(folder_path, f"video_output.{extension}")
+
     command = [
         "ffmpeg",
         "-y",                # -y para sobrescribir sin preguntar
@@ -45,17 +67,23 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, output_fo
         "-i", os.path.join(folder_path, f"{prefix}%04d.png"),
     ]
 
-    # Si hay audio, lo añadimos como otra entrada
+    # Si hay audio, lo añadimos
     if audio_path:
         command.extend(["-i", audio_path])
 
-    # Ajustes de video, según la selección del ComboBox
-    if output_format == "mp4 (H.265)":
-        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p"])  # 8 bits
-    elif output_format == "mp4 (H.264 10-bit)":
+    # Ahora, definimos el códec según user_format
+    if user_format == "mp4 (H.265)":
+        # H.265 8 bits
+        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p"])
+    elif user_format == "mp4 (H.264 10-bit)":
+        # H.264 10 bits
         command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p10le"])
+    elif user_format.startswith("mp4 (H.264 8-bit)"):
+        # MP4 H.264 8 bits
+        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p"])
     else:
-        # Por defecto, asume H.264 8 bits
+        # Formatos genéricos
+        #s Asumimos H.264 8 bits
         command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p"])
 
     # Ajustes de audio (si se incluyó)
@@ -63,7 +91,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, output_fo
         command.extend([
             "-c:a", "aac",
             "-b:a", "192k",
-            "-shortest"  # Recorta el audio a la duración del video
+            "-shortest"  # recorta el audio a la duración del video
         ])
 
     command.append(output_file)
