@@ -49,11 +49,14 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, output_fo
     if audio_path:
         command.extend(["-i", audio_path])
 
-    # Ajustes de video
-    command.extend([
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p"
-    ])
+    # Ajustes de video, según la selección del ComboBox
+    if output_format == "mp4 (H.265)":
+        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p"])  # 8 bits
+    elif output_format == "mp4 (H.264 10-bit)":
+        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p10le"])
+    else:
+        # Por defecto, asume H.264 8 bits
+        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p"])
 
     # Ajustes de audio (si se incluyó)
     if audio_path:

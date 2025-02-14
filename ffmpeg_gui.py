@@ -8,10 +8,9 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QPushButton, QFileDialog,
     QLabel, QComboBox, QLineEdit, QProgressBar
 )
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal, Qt
 
 from ffmpeg_logic import convert_images_to_video_command
-
 
 class FFmpegGUI(QWidget):
     def __init__(self):
@@ -52,7 +51,15 @@ class FFmpegGUI(QWidget):
         layout.addWidget(self.img_format_label)
 
         self.img_format_combo = QComboBox()
-        self.img_format_combo.addItems(["mp4", "avi", "mkv", "mov"])
+        self.img_format_combo.clear()
+        self.img_format_combo.addItems([
+            "mp4 (H.264 8-bit)",
+            "mp4 (H.265)",
+            "mp4 (H.264 10-bit)",
+            "avi",
+            "mkv",
+            "mov"
+        ])
         layout.addWidget(self.img_format_combo)
 
         # Botón para iniciar la conversión
@@ -60,14 +67,22 @@ class FFmpegGUI(QWidget):
         self.btn_convert_images.clicked.connect(self.convert_images_to_video)
         layout.addWidget(self.btn_convert_images)
 
-        # Barra de progreso
+        # Barra de progreso (oculta hasta que inicie la conversión)
         self.progress_bar = QProgressBar()
         self.progress_bar.setValue(0)
+        self.progress_bar.setVisible(False)
         layout.addWidget(self.progress_bar)
 
         # Label de estado
         self.status_label = QLabel("")
         layout.addWidget(self.status_label)
+
+        # Label para el enlace al video final (oculto por defecto)
+        self.video_link_label = QLabel("")
+        self.video_link_label.setOpenExternalLinks(True)
+        self.video_link_label.setTextFormat(Qt.TextFormat.RichText)
+        self.video_link_label.setVisible(False)
+        layout.addWidget(self.video_link_label)
 
         self.setLayout(layout)
 
@@ -101,7 +116,7 @@ class FFmpegGUI(QWidget):
         audio_path = getattr(self, 'audio_path', None)
         output_format = self.img_format_combo.currentText()
 
-        # Contamos cuántas imágenes (ejemplo, asumiendo .png)
+        # Contamos cuántas imágenes (asumiendo .png)
         images = sorted(os.listdir(self.image_folder))
         total_images = len([img for img in images if img.lower().endswith('.png')])
         if total_images == 0:
@@ -109,7 +124,7 @@ class FFmpegGUI(QWidget):
             return
 
         # Construimos el comando ffmpeg
-        command, _ = convert_images_to_video_command(
+        command, output_file = convert_images_to_video_command(
             self.image_folder, fps, audio_path, output_format
         )
         if not command:
@@ -117,12 +132,16 @@ class FFmpegGUI(QWidget):
             return
 
         # Creamos un hilo (Worker) para ejecutar ffmpeg y leer el progreso
-        self.worker = FFmpegWorker(command, total_images)
+        self.worker = FFmpegWorker(command, total_images, output_file)
+
+        # Conectamos señales
         self.worker.progressChanged.connect(self.on_progress_changed)
         self.worker.finishedSignal.connect(self.on_conversion_finished)
 
         # Reiniciamos la barra y estado
+        self.progress_bar.setVisible(True)
         self.progress_bar.setValue(0)
+        self.video_link_label.setVisible(False)
         self.status_label.setText("Convirtiendo...")
         self.worker.start()
 
@@ -131,13 +150,24 @@ class FFmpegGUI(QWidget):
         self.progress_bar.setValue(value)
 
     def on_conversion_finished(self, success, message):
-        """Señal emitida cuando FFmpeg termina."""
+        """
+        Señal emitida cuando FFmpeg termina.
+        'message' es la ruta del archivo de salida si success=True,
+        o el texto del error si success=False.
+        """
         if success:
             self.status_label.setText("Conversión completada.")
             self.progress_bar.setValue(100)
+
+            # Mostramos enlace al video
+            self.video_link_label.setText(
+                f"<a href='file:///{message}'>Abrir video: {os.path.basename(message)}</a>"
+            )
+            self.video_link_label.setVisible(True)
         else:
             self.status_label.setText(f"Error: {message}")
             self.progress_bar.setValue(0)
+            self.video_link_label.setVisible(False)
 
 # -----------------------------------------------------------------
 # CLASE QThread PARA EJECUTAR Y PARSEAR FFmpeg EN BACKGROUND (stderr)
@@ -146,38 +176,32 @@ class FFmpegWorker(QThread):
     progressChanged = pyqtSignal(int)
     finishedSignal = pyqtSignal(bool, str)
 
-    def __init__(self, command, total_frames):
+    def __init__(self, command, total_frames, output_file):
         """
         command: Lista de parámetros para subprocess (ffmpeg).
         total_frames: número total de frames/imágenes a procesar.
+        output_file: ruta del archivo de salida final.
         """
         super().__init__()
         self.command = command
         self.total_frames = total_frames
+        self.output_file = output_file
 
     def run(self):
         """
         Ejecuta FFmpeg y parsea su salida (stderr) en tiempo real
-        para capturar el número 'frame= XXX' y así calcular el progreso.
+        para capturar "frame=   XXX" y así calcular el progreso.
         """
-        # Evitar mostrar la consola en Windows (opcional)
-        # import sys
-        # import subprocess
-        # if sys.platform.startswith("win"):
-        #     CREATE_NO_WINDOW = 0x08000000
-        # else:
-        #     CREATE_NO_WINDOW = 0
-
         proc = subprocess.Popen(
             self.command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
             shell=False
-            #, creationflags=CREATE_NO_WINDOW   # Descomenta en Windows para ocultar ventana CMD
+            # En Windows, para evitar ventana CMD: 
+            # creationflags=subprocess.CREATE_NO_WINDOW 
         )
 
-        # Leer salida de error en bucle
         while True:
             line = proc.stderr.readline()
             if not line:
@@ -187,6 +211,7 @@ class FFmpegWorker(QThread):
             match = re.search(r"frame=\s*(\d+)", line)
             if match:
                 current_frame = int(match.group(1))
+                # Calculamos porcentaje en base a total_frames
                 progress = int(current_frame / self.total_frames * 100)
                 self.progressChanged.emit(progress)
 
@@ -195,8 +220,9 @@ class FFmpegWorker(QThread):
         success = (retcode == 0)
 
         if success:
-            self.finishedSignal.emit(True, "Proceso finalizado correctamente.")
+            # Si todo fue bien, emitimos la ruta del archivo final
+            self.finishedSignal.emit(True, self.output_file)
         else:
-            # Lee cualquier resto de stderr para mostrarlo como error
+            # Leemos el resto de stderr como error
             error_output = proc.stderr.read()
             self.finishedSignal.emit(False, error_output or "Error en FFmpeg.")
