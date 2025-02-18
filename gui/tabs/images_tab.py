@@ -78,10 +78,12 @@ class ImagesTab(QWidget):
         config_layout.addWidget(self.img_format_label)
         self.img_format_combo = QComboBox()
         self.img_format_combo.addItems([
-            "mp4 (H.264 8-bit)",
-            "mp4 (H.265 8-bit)",
+            "mp4 (H.264 16-bit)",
+            "mp4 (H.265 16-bit)",    
             "mp4 (H.265 10-bit)",
             "mp4 (H.264 10-bit)",
+            "mp4 (H.264 8-bit)",
+            "mp4 (H.265 8-bit)",
             "avi",
             "mkv",
             "mov"

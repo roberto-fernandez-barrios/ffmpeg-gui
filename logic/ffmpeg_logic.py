@@ -109,13 +109,17 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     if audio_path:
         command.extend(["-i", audio_path])
 
-    # Selecciona el códec y formato según el parámetro user_format
+    # Seleccionar códec y formato según user_format y añadir CRF
     if user_format == "mp4 (H.265 8-bit)":
         command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p", "-crf", crf])
     elif user_format == "mp4 (H.265 10-bit)":
         command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p10le", "-crf", crf])
+    elif user_format == "mp4 (H.265 16-bit)":
+        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p16le", "-crf", crf])
     elif user_format == "mp4 (H.264 10-bit)":
         command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p10le", "-crf", crf])
+    elif user_format == "mp4 (H.264 16-bit)":
+        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p16le", "-crf", crf])
     elif user_format == "mp4 (H.264 8-bit)" or user_format.lower().startswith("mp4"):
         command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", crf])
     else:
