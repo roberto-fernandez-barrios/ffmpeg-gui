@@ -1,8 +1,3 @@
-Aquí tienes un ejemplo de README.md para tu proyecto:
-
----
-
-```markdown
 # FFmpeg GUI
 
 Una **Interfaz Gráfica para FFmpeg** desarrollada en Python utilizando PyQt6.  
@@ -11,7 +6,7 @@ Esta aplicación permite:
 - **Agregar audio a un video** (por ejemplo, a un video sin sonido).
 - **Cortar videos** especificando tiempos de inicio y duración o tiempo final.
 
-Además, la aplicación ejecuta los procesos de FFmpeg en hilos separados para mantener la interfaz responsiva y, si se intenta generar un video con un nombre de archivo ya existente, automáticamente se genera un nombre único para evitar conflictos.
+La aplicación ejecuta los procesos de FFmpeg en hilos separados para mantener la interfaz responsiva y, si se intenta generar un video con un nombre de archivo ya existente, se genera un nombre único automáticamente para evitar conflictos.
 
 ---
 
@@ -106,31 +101,17 @@ project/
 
 ---
 
-## Contribuciones
-
-¡Las contribuciones son bienvenidas!  
-Si deseas mejorar o agregar nuevas funcionalidades, por favor:
-1. Abre un _issue_ para discutir tus ideas.
-2. Envía un _pull request_ con tus cambios.
-
----
-
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia **MIT**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+Este proyecto se distribuye bajo la licencia **Non Comercial License**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
 
 ---
 
 ## Créditos
 
-- **Desarrollador:** [Tu Nombre o Equipo]
+- **Desarrollador:** Roberto Fernández Barrios
 - Inspirado en diversas herramientas y proyectos que integran FFmpeg con interfaces gráficas.
 
 ---
 
 ¡Gracias por utilizar FFmpeg GUI!
-```
-
----
-
-Este README brinda una visión completa de tu proyecto, explicando las funcionalidades, estructura, requisitos, instalación, uso y cómo contribuir. Puedes adaptarlo según tus necesidades y agregar cualquier información adicional que consideres relevante.
