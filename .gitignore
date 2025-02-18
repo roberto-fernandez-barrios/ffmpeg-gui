@@ -1,5 +1,6 @@
 # Ignorar la carpeta de archivos estáticos
-static/
+static/audio/
+static/images/
 
 # Ignorar la carpeta de documentos
 documents/
@@ -27,3 +28,6 @@ logs/
 .idea/
 *.swp
 .DS_Store
+
+# Archivos ejecutables
+dist/
