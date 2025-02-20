@@ -6,16 +6,20 @@ combinar ambos mediante FFmpeg.
 """
 
 import os
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QFileDialog, QProgressBar
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QFileDialog,
+    QScrollArea
+)
 from PyQt6.QtCore import Qt
-from gui.widgets import ClickableLabel  # Widget para enlaces clicables
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
 
-# Importa la función que genera el comando para agregar audio
+# Función que genera el comando para agregar audio
 from logic.ffmpeg_logic import add_audio_to_video_command
-# Importa el worker para ejecutar FFmpeg
+# Worker para ejecutar FFmpeg
 from logic.ffmpeg_worker import FFmpegWorker
+# Widget de tarea (ya implementado en gui/task_widget.py)
+from gui.task_widget import ConversionTaskWidget
 
 class VideoTab(QWidget):
     def __init__(self):
@@ -49,28 +53,29 @@ class VideoTab(QWidget):
         group_audio.setLayout(audio_layout)
         layout.addWidget(group_audio)
 
-        # --- Grupo: Procesamiento ---
-        group_process = QGroupBox("Procesar adición de audio")
-        process_layout = QVBoxLayout()
+        # --- Botón para iniciar el proceso ---
         self.btn_add_audio = QPushButton("Agregar audio al video")
         self.btn_add_audio.clicked.connect(self.add_audio_to_video)
-        process_layout.addWidget(self.btn_add_audio)
+        layout.addWidget(self.btn_add_audio)
 
-        self.video_progress_bar = QProgressBar()
-        self.video_progress_bar.setValue(0)
-        self.video_progress_bar.setVisible(False)
-        process_layout.addWidget(self.video_progress_bar)
+        # --- Grupo: Tareas de Conversión ---
+        group_tasks = QGroupBox("Tareas de Conversión")
+        self.tasks_layout = QVBoxLayout()
+        self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Alinea las tareas hacia arriba
+        group_tasks.setLayout(self.tasks_layout)
 
-        self.video_status_label = QLabel("")
-        process_layout.addWidget(self.video_status_label)
+        # QScrollArea para soportar múltiples tareas
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        # Ajusta el tamaño mínimo del cuadro donde se muestran las tareas
+        scroll_area.setMinimumHeight(100)
 
-        self.video_link_label = ClickableLabel("")
-        self.video_link_label.setTextFormat(Qt.TextFormat.RichText)
-        self.video_link_label.setVisible(False)
-        process_layout.addWidget(self.video_link_label)
+        scroll_content = QWidget()
+        scroll_content.setLayout(self.tasks_layout)
+        scroll_area.setWidget(scroll_content)
 
-        group_process.setLayout(process_layout)
-        layout.addWidget(group_process)
+        layout.addWidget(group_tasks)
+        layout.addWidget(scroll_area)
 
         self.setLayout(layout)
 
@@ -103,59 +108,67 @@ class VideoTab(QWidget):
     def add_audio_to_video(self):
         """
         Inicia el proceso para agregar audio a un video.
-        Construye el comando FFmpeg y arranca un worker para ejecutar la tarea.
+        Construye el comando FFmpeg y arranca un worker para ejecutar la tarea,
+        creando además un widget de tarea que se añade al área de tareas.
         """
         if not self.video_file:
-            self.video_status_label.setText("Selecciona un video primero.")
+            error_widget = ConversionTaskWidget("Error: Sin video")
+            error_widget.update_status("Selecciona un video primero.")
+            self.tasks_layout.addWidget(error_widget)
             return
         if not self.video_audio_file:
-            self.video_status_label.setText("Selecciona un archivo de audio.")
+            error_widget = ConversionTaskWidget("Error: Sin audio")
+            error_widget.update_status("Selecciona un archivo de audio.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         # Genera el comando FFmpeg y obtiene el archivo de salida
         command, output_file = add_audio_to_video_command(self.video_file, self.video_audio_file)
         if not command:
-            self.video_status_label.setText("Error al construir el comando FFmpeg.")
+            error_widget = ConversionTaskWidget("Error: Comando inválido")
+            error_widget.update_status("Error al construir el comando FFmpeg.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
-        # Crea y arranca el worker
-        self.video_worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
-        self.video_worker.progressChanged.connect(self.on_video_progress_changed)
-        self.video_worker.finishedSignal.connect(self.on_video_conversion_finished)
+        # Crea el widget de tarea para mostrar la conversión
+        task_name = f"Video: {os.path.basename(output_file)}"
+        task_widget = ConversionTaskWidget(task_name)
+        self.tasks_layout.addWidget(task_widget)
 
-        self.video_progress_bar.setVisible(True)
-        self.video_progress_bar.setValue(0)
-        self.video_status_label.setText("Agregando audio al video...")
-        self.video_worker.start()
+        # Crea y configura el worker para ejecutar FFmpeg
+        # En este caso, asignamos un total de 100 "frames" de referencia, ya que agregar audio suele ser un proceso rápido
+        worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
+        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
+        worker.finishedSignal.connect(lambda success, message: self.handle_video_task_finished(task_widget, success, message))
+        # Permite cancelar la tarea mediante el botón del widget (advertencia: terminate() fuerza la terminación)
+        task_widget.cancelRequested.connect(lambda: self.cancel_video_task(worker, task_widget))
 
-    def on_video_progress_changed(self, value):
-        """Actualiza la barra de progreso durante la adición de audio."""
-        self.video_progress_bar.setValue(value)
+        worker.start()
 
-    def on_video_conversion_finished(self, success, message):
+    def handle_video_task_finished(self, task_widget, success, message):
         """
-        Maneja el final del proceso de adición de audio.
-        Si es exitoso, muestra un enlace clicable para abrir el video generado.
+        Actualiza el widget de la tarea según el resultado del proceso.
+        Si es exitoso, actualiza el nombre para incluir un enlace clicable.
         """
         if success:
-            self.video_status_label.setText("Audio agregado con éxito.")
+            task_widget.update_status("Completado")
+            task_widget.update_progress(100)
             if message and os.path.exists(message):
                 normalized_path = os.path.abspath(message).replace("\\", "/")
-                self.video_link_label.setText(
-                    f"<a style='color:blue; text-decoration:underline;' href='#'>Abrir video: {os.path.basename(message)}</a>"
+                # Se actualiza el texto del nombre para mostrar un enlace
+                task_widget.name_label.setText(
+                    f"<a style='color:blue; text-decoration:underline;' href='#'>{os.path.basename(message)}</a>"
                 )
-                self.video_link_label.setVisible(True)
-                try:
-                    self.video_link_label.clicked.disconnect()
-                except Exception:
-                    pass
-                self.video_link_label.clicked.connect(
+                task_widget.name_label.setToolTip(message)
+                task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
-            else:
-                self.video_link_label.setText("Video generado, pero no se encontró la ruta.")
-                self.video_link_label.setVisible(True)
         else:
-            self.video_status_label.setText(f"Error: {message}")
-            self.video_link_label.setVisible(False)
-        self.video_progress_bar.setValue(100 if success else 0)
+            task_widget.update_status(f"Error: {message}")
+            task_widget.update_progress(0)
+
+    def cancel_video_task(self, worker, task_widget):
+        """Cancela la tarea de conversión forzando la terminación del worker."""
+        worker.terminate()  # Notar: terminate() fuerza la finalización y puede no liberar todos los recursos adecuadamente.
+        task_widget.update_status("Cancelado")
+        task_widget.update_progress(0)

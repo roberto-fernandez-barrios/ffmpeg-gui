@@ -15,8 +15,9 @@ from gui.tabs.cut_video_tab import CutVideoTab
 class FFmpegGUI(QWidget):
     def __init__(self):
         super().__init__()
+        self.workers = []  # Lista para almacenar los workers activos
         self.setWindowTitle("FFmpeg GUI")
-        self.setGeometry(100, 100, 500, 400)
+        self.setGeometry(100, 100, 600, 500)
         self.init_ui()
 
     def init_ui(self):

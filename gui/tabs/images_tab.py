@@ -1,20 +1,14 @@
 # gui/tabs/images_tab.py
-"""
-ImagesTab: Pestaña para convertir una secuencia de imágenes en un video.
-Proporciona la interfaz para seleccionar la carpeta de imágenes, definir parámetros
-(de FPS, CRF, fundidos, audio, formato) y ejecutar la conversión mediante FFmpeg.
-"""
 
 import os
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit, QComboBox, QProgressBar, QFileDialog
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
+    QComboBox, QFileDialog, QScrollArea, QFrame
+)
 from PyQt6.QtCore import Qt
-from gui.widgets import ClickableLabel  # Widget personalizado para etiquetas clicables
-from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtCore import QUrl
-
-# Importa la función que construye el comando FFmpeg para conversión
+from gui.widgets import ClickableLabel  # Widget personalizado (si lo necesitas en otra parte)
+from gui.task_widget import ConversionTaskWidget  # Nuestra nueva clase de tarea
 from logic.ffmpeg_logic import convert_images_to_video_command
-# Importa el worker que ejecuta FFmpeg en un hilo
 from logic.ffmpeg_worker import FFmpegWorker
 
 class ImagesTab(QWidget):
@@ -27,7 +21,7 @@ class ImagesTab(QWidget):
     def init_ui(self):
         layout = QVBoxLayout()
 
-        # --- Grupo: Selección de Imágenes ---
+        # Grupo: Selección de Imágenes
         group_folder = QGroupBox("Selección de Imágenes")
         folder_layout = QVBoxLayout()
         self.img_seq_label = QLabel("Carpeta con imágenes:")
@@ -38,42 +32,36 @@ class ImagesTab(QWidget):
         group_folder.setLayout(folder_layout)
         layout.addWidget(group_folder)
 
-        # --- Grupo: Configuración de Conversión ---
+        # Grupo: Configuración de Conversión
         group_config = QGroupBox("Configuración de Conversión")
         config_layout = QVBoxLayout()
 
-        # Configuración de FPS
         self.fps_label = QLabel("FPS (Frames por segundo):")
         config_layout.addWidget(self.fps_label)
         self.fps_input = QLineEdit("30")
         config_layout.addWidget(self.fps_input)
 
-        # Configuración de CRF
         self.crf_label = QLabel("CRF:")
         config_layout.addWidget(self.crf_label)
         self.crf_input = QLineEdit("19")
         config_layout.addWidget(self.crf_input)
 
-        # Configuración de fundido de entrada (fade in)
         self.fade_in_label = QLabel("Fade In (segundos):")
         config_layout.addWidget(self.fade_in_label)
         self.fade_in_input = QLineEdit("1")
         config_layout.addWidget(self.fade_in_input)
 
-        # Configuración de fundido de salida (fade out)
         self.fade_out_label = QLabel("Fade Out (segundos):")
         config_layout.addWidget(self.fade_out_label)
         self.fade_out_input = QLineEdit("1")
         config_layout.addWidget(self.fade_out_input)
 
-        # Selección opcional de archivo de audio
         self.audio_label = QLabel("Archivo de audio (opcional):")
         config_layout.addWidget(self.audio_label)
         self.btn_select_audio = QPushButton("Seleccionar archivo de audio")
         self.btn_select_audio.clicked.connect(self.select_audio_file)
         config_layout.addWidget(self.btn_select_audio)
 
-        # Selección del formato de salida
         self.img_format_label = QLabel("Formato de salida:")
         config_layout.addWidget(self.img_format_label)
         self.img_format_combo = QComboBox()
@@ -93,28 +81,30 @@ class ImagesTab(QWidget):
         group_config.setLayout(config_layout)
         layout.addWidget(group_config)
 
-        # --- Grupo: Procesamiento de Conversión ---
-        group_process = QGroupBox("Procesar Conversión")
-        process_layout = QVBoxLayout()
+        # Botón para iniciar la conversión
         self.btn_convert_images = QPushButton("Convertir imágenes a video")
         self.btn_convert_images.clicked.connect(self.convert_images_to_video)
-        process_layout.addWidget(self.btn_convert_images)
+        layout.addWidget(self.btn_convert_images)
 
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0)
-        self.progress_bar.setVisible(False)
-        process_layout.addWidget(self.progress_bar)
+        # Área para mostrar las tareas de conversión activas
+        group_tasks = QGroupBox("Tareas de Conversión")
+        self.tasks_layout = QVBoxLayout()
+        self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)  # Alinea las tareas hacia arriba
+        group_tasks.setLayout(self.tasks_layout)
 
-        self.status_label = QLabel("")
-        process_layout.addWidget(self.status_label)
+        # Se usa un QScrollArea para que la lista sea desplazable en caso de muchas tareas
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
 
-        self.image_video_link_label = ClickableLabel("")
-        self.image_video_link_label.setTextFormat(Qt.TextFormat.RichText)
-        self.image_video_link_label.setVisible(False)
-        process_layout.addWidget(self.image_video_link_label)
+        # Establece un tamaño mínimo para que el cuadro sea más grande
+        scroll_area.setMinimumHeight(100)
 
-        group_process.setLayout(process_layout)
-        layout.addWidget(group_process)
+        scroll_content = QWidget()
+        scroll_content.setLayout(self.tasks_layout)
+        scroll_area.setWidget(scroll_content)
+
+        layout.addWidget(group_tasks)
+        layout.addWidget(scroll_area)
 
         self.setLayout(layout)
 
@@ -141,23 +131,24 @@ class ImagesTab(QWidget):
 
     def convert_images_to_video(self):
         """
-        Inicia la conversión de imágenes a video.
-        Recoge los parámetros definidos por el usuario, construye el comando FFmpeg
-        y arranca un hilo (worker) para ejecutar la conversión.
+        Inicia la conversión de imágenes a video y crea una nueva tarea en la interfaz para mostrar su progreso.
         """
         if not self.image_folder:
-            self.status_label.setText("Selecciona una carpeta de imágenes primero.")
+            error_widget = ConversionTaskWidget("Error: Sin carpeta")
+            error_widget.update_status("Selecciona una carpeta de imágenes primero.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         fps = self.fps_input.text()
         audio_path = self.audio_path  # Puede ser None si no se seleccionó audio
         user_format = self.img_format_combo.currentText()
 
-        # Verifica que existan imágenes .png en la carpeta
         images = sorted(os.listdir(self.image_folder))
         total_images = len([img for img in images if img.lower().endswith('.png')])
         if total_images == 0:
-            self.status_label.setText("No se encontraron imágenes .png en la carpeta.")
+            error_widget = ConversionTaskWidget("Error: Sin imágenes")
+            error_widget.update_status("No se encontraron imágenes .png en la carpeta.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         crf = self.crf_input.text()
@@ -170,54 +161,44 @@ class ImagesTab(QWidget):
         except ValueError:
             fade_out = 1
 
-        # Construye el comando FFmpeg y obtiene la ruta del archivo de salida
         command, output_file = convert_images_to_video_command(
             self.image_folder, fps, audio_path, user_format, crf, fade_in, fade_out
         )
         if not command:
-            self.status_label.setText("No se detectó el patrón correcto en las imágenes.")
+            error_widget = ConversionTaskWidget("Error: Patrón inválido")
+            error_widget.update_status("No se detectó el patrón correcto en las imágenes.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
-        # Crea y arranca el worker para ejecutar FFmpeg
-        self.worker = FFmpegWorker(command, total_images, output_file, enable_logs=False)
-        self.worker.progressChanged.connect(self.on_progress_changed)
-        self.worker.finishedSignal.connect(self.on_conversion_finished)
+        # Se crea un widget de tarea para esta conversión
+        task_name = f"Conversión: {os.path.basename(output_file)}"
+        task_widget = ConversionTaskWidget(task_name)
+        self.tasks_layout.addWidget(task_widget)
 
-        self.progress_bar.setVisible(True)
-        self.progress_bar.setValue(0)
-        self.image_video_link_label.setVisible(False)
-        self.status_label.setText("Convirtiendo...")
-        self.worker.start()
+        # Se crea el worker que ejecutará FFmpeg para esta conversión
+        worker = FFmpegWorker(command, total_images, output_file, enable_logs=False)
+        # Conectamos la señal de progreso para actualizar la barra del widget de tarea
+        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
+        # Conectamos la señal de finalización para actualizar el estado del widget
+        worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message))
+        # Permite cancelar la tarea: en este ejemplo se llama a terminate() (nota: no es lo ideal en producción)
+        task_widget.cancelRequested.connect(lambda: self.cancel_conversion(worker, task_widget))
 
-    def on_progress_changed(self, value):
-        """Actualiza la barra de progreso."""
-        self.progress_bar.setValue(value)
+        worker.start()
 
-    def on_conversion_finished(self, success, message):
-        """
-        Maneja el final del proceso de conversión.
-        Si es exitoso, muestra un enlace clicable para abrir el video generado.
-        """
+    def handle_task_finished(self, task_widget, success, message):
+        """Actualiza el widget de la tarea según el resultado de la conversión."""
         if success:
-            self.status_label.setText("Conversión completada.")
-            self.progress_bar.setValue(100)
-            if message and os.path.exists(message):
-                normalized_path = os.path.abspath(message).replace("\\", "/")
-                self.image_video_link_label.setText(
-                    f"<a style='color:blue; text-decoration:underline;' href='#'>Abrir video: {os.path.basename(message)}</a>"
-                )
-                self.image_video_link_label.setVisible(True)
-                try:
-                    self.image_video_link_label.clicked.disconnect()
-                except Exception:
-                    pass
-                self.image_video_link_label.clicked.connect(
-                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
-                )
-            else:
-                self.image_video_link_label.setText("Video generado, pero no se encontró la ruta.")
-                self.image_video_link_label.setVisible(True)
+            task_widget.update_status("Completado")
+            task_widget.update_progress(100)
         else:
-            self.status_label.setText(f"Error: {message}")
-            self.progress_bar.setValue(0)
-            self.image_video_link_label.setVisible(False)
+            task_widget.update_status(f"Error: {message}")
+            task_widget.update_progress(0)
+
+    def cancel_conversion(self, worker, task_widget):
+        """
+        Cancela la conversión forzando la terminación del worker y actualizando el widget de la tarea.
+        """
+        worker.terminate()  # Advertencia: terminate() fuerza la finalización y puede no liberar todos los recursos correctamente.
+        task_widget.update_status("Cancelado")
+        task_widget.update_progress(0)

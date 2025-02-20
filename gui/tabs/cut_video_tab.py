@@ -6,9 +6,11 @@ y luego ejecutar el corte mediante FFmpeg.
 """
 
 import os
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit, QProgressBar, QFileDialog
+from PyQt6.QtWidgets import (
+    QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
+    QScrollArea, QFileDialog
+)
 from PyQt6.QtCore import Qt
-from gui.widgets import ClickableLabel  # Widget para etiquetas clicables
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import QUrl
 
@@ -16,6 +18,8 @@ from PyQt6.QtCore import QUrl
 from logic.ffmpeg_logic import cut_video_command
 # Importa el worker para ejecutar FFmpeg
 from logic.ffmpeg_worker import FFmpegWorker
+# Importa el widget de tarea (usado para mostrar cada corte)
+from gui.task_widget import ConversionTaskWidget
 
 class CutVideoTab(QWidget):
     def __init__(self):
@@ -65,22 +69,27 @@ class CutVideoTab(QWidget):
         self.btn_cut_video = QPushButton("Cortar Video")
         self.btn_cut_video.clicked.connect(self.cut_video)
         process_layout.addWidget(self.btn_cut_video)
-
-        self.cut_progress_bar = QProgressBar()
-        self.cut_progress_bar.setValue(0)
-        self.cut_progress_bar.setVisible(False)
-        process_layout.addWidget(self.cut_progress_bar)
-
-        self.cut_status_label = QLabel("")
-        process_layout.addWidget(self.cut_status_label)
-
-        self.cut_video_link_label = ClickableLabel("")
-        self.cut_video_link_label.setTextFormat(Qt.TextFormat.RichText)
-        self.cut_video_link_label.setVisible(False)
-        process_layout.addWidget(self.cut_video_link_label)
-
         group_process.setLayout(process_layout)
         layout.addWidget(group_process)
+
+        # --- Grupo: Tareas de Corte ---
+        group_tasks = QGroupBox("Tareas de Corte")
+        self.tasks_layout = QVBoxLayout()
+        # Alinea las tareas hacia la parte superior para que se vayan agregando de arriba hacia abajo
+        self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        group_tasks.setLayout(self.tasks_layout)
+
+        # Se usa un QScrollArea para que la lista de tareas sea desplazable
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        # Define un tamaño mínimo para el contenedor de tareas
+        scroll_area.setMinimumHeight(100)
+        scroll_content = QWidget()
+        scroll_content.setLayout(self.tasks_layout)
+        scroll_area.setWidget(scroll_content)
+
+        layout.addWidget(group_tasks)
+        layout.addWidget(scroll_area)
 
         self.setLayout(layout)
 
@@ -100,10 +109,12 @@ class CutVideoTab(QWidget):
         """
         Inicia el proceso de corte de video.
         Recoge los parámetros (tiempo de inicio, duración o tiempo final),
-        construye el comando FFmpeg y arranca el worker.
+        construye el comando FFmpeg y arranca el worker, creando además un widget de tarea.
         """
         if not self.cut_video_file:
-            self.cut_status_label.setText("Selecciona un video primero.")
+            error_widget = ConversionTaskWidget("Error: Sin video")
+            error_widget.update_status("Selecciona un video primero.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         start_time = self.cut_start_input.text().strip() or "0"
@@ -111,51 +122,54 @@ class CutVideoTab(QWidget):
         end_time = self.cut_end_input.text().strip()
 
         # Genera el comando FFmpeg y obtiene la ruta de salida
-        command, output_file = cut_video_command(self.cut_video_file, start_time, duration=duration or None, end_time=end_time or None)
+        command, output_file = cut_video_command(
+            self.cut_video_file,
+            start_time,
+            duration=duration or None,
+            end_time=end_time or None
+        )
         if not command:
-            self.cut_status_label.setText("Error al construir el comando FFmpeg.")
+            error_widget = ConversionTaskWidget("Error: Comando inválido")
+            error_widget.update_status("Error al construir el comando FFmpeg.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
-        # Crea y arranca el worker
-        self.cut_worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
-        self.cut_worker.progressChanged.connect(self.on_cut_video_progress_changed)
-        self.cut_worker.finishedSignal.connect(self.on_cut_video_finished)
+        # Crea el widget de tarea para mostrar el corte
+        task_name = f"Corte: {os.path.basename(output_file)}"
+        task_widget = ConversionTaskWidget(task_name)
+        self.tasks_layout.addWidget(task_widget)
 
-        self.cut_progress_bar.setVisible(True)
-        self.cut_progress_bar.setValue(0)
-        self.cut_status_label.setText("Cortando video...")
-        self.btn_cut_video.setEnabled(False)
-        self.cut_worker.start()
+        # Crea y arranca el worker para ejecutar FFmpeg
+        worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
+        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
+        worker.finishedSignal.connect(lambda success, message: self.handle_cut_task_finished(task_widget, success, message))
+        # Permite cancelar la tarea: se conecta la señal del widget a una función que llama a terminate()
+        task_widget.cancelRequested.connect(lambda: self.cancel_cut_task(worker, task_widget))
+        worker.start()
 
-    def on_cut_video_progress_changed(self, value):
-        """Actualiza la barra de progreso durante el corte del video."""
-        self.cut_progress_bar.setValue(value)
-
-    def on_cut_video_finished(self, success, message):
-        """
-        Maneja el final del proceso de corte.
-        Si es exitoso, muestra un enlace clicable para abrir el video cortado.
-        """
-        self.btn_cut_video.setEnabled(True)
+    def handle_cut_task_finished(self, task_widget, success, message):
+        """Actualiza el widget de la tarea según el resultado del corte."""
         if success:
-            self.cut_status_label.setText("Corte completado.")
+            task_widget.update_status("Completado")
+            task_widget.update_progress(100)
             if message and os.path.exists(message):
                 normalized_path = os.path.abspath(message).replace("\\", "/")
-                self.cut_video_link_label.setText(
-                    f"<a style='color:blue; text-decoration:underline;' href='#'>Abrir video cortado: {os.path.basename(message)}</a>"
+                # Se actualiza el texto para mostrar un enlace clicable con el nombre del archivo
+                task_widget.name_label.setText(
+                    f"<a style='color:blue; text-decoration:underline;' href='#'>{os.path.basename(message)}</a>"
                 )
-                self.cut_video_link_label.setVisible(True)
-                try:
-                    self.cut_video_link_label.clicked.disconnect()
-                except Exception:
-                    pass
-                self.cut_video_link_label.clicked.connect(
+                task_widget.name_label.setToolTip(message)
+                task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
             else:
-                self.cut_video_link_label.setText("Video cortado, pero no se encontró la ruta.")
-                self.cut_video_link_label.setVisible(True)
+                task_widget.update_status("Corte completado, pero no se encontró la ruta.")
         else:
-            self.cut_status_label.setText(f"Error: {message}")
-            self.cut_video_link_label.setVisible(False)
-        self.cut_progress_bar.setValue(100 if success else 0)
+            task_widget.update_status(f"Error: {message}")
+            task_widget.update_progress(0)
+
+    def cancel_cut_task(self, worker, task_widget):
+        """Cancela la tarea forzando la terminación del worker y actualizando el widget."""
+        worker.terminate()  # Notar: terminate() fuerza la finalización y puede no liberar todos los recursos adecuadamente.
+        task_widget.update_status("Cancelado")
+        task_widget.update_progress(0)

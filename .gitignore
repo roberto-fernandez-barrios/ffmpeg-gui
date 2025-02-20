@@ -1,6 +1,7 @@
 # Ignorar la carpeta de archivos estáticos
 static/audio/
 static/images/
+static/images - copia/
 
 # Ignorar la carpeta de documentos
 documents/
