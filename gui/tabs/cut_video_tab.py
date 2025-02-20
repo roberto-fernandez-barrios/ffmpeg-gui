@@ -164,12 +164,15 @@ class CutVideoTab(QWidget):
                 )
             else:
                 task_widget.update_status("Corte completado, pero no se encontró la ruta.")
+        elif message.lower() == "cancelado":
+            task_widget.update_status(message)  # Sin "Error: ", solo muestra el mensaje
+            task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")
+            task_widget.update_status(f"Error: {message}")  # Solo agrega "Error:" en errores reales
             task_widget.update_progress(0)
 
     def cancel_cut_task(self, worker, task_widget):
         """Cancela la tarea forzando la terminación del worker y actualizando el widget."""
-        worker.terminate()  # Notar: terminate() fuerza la finalización y puede no liberar todos los recursos adecuadamente.
+        worker.cancel()  
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)

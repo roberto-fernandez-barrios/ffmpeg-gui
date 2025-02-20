@@ -191,14 +191,17 @@ class ImagesTab(QWidget):
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
+        elif message.lower() == "cancelado":
+            task_widget.update_status(message)  # Solo muestra "Proceso cancelado por el usuario."
+            task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")
+            task_widget.update_status(f"Error: {message}")  # Mantiene "Error:" en otros casos
             task_widget.update_progress(0)
 
     def cancel_conversion(self, worker, task_widget):
         """
         Cancela la conversión forzando la terminación del worker y actualizando el widget de la tarea.
         """
-        worker.terminate()  # Advertencia: terminate() fuerza la finalización y puede no liberar todos los recursos correctamente.
+        worker.cancel()  
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)

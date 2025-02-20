@@ -142,12 +142,15 @@ class LimitKpsTab(QWidget):
                 task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
+        elif message.lower() == "cancelado":
+            task_widget.update_status(message)  # Evita agregar "Error: "
+            task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")
+            task_widget.update_status(f"Error: {message}")  # Mantiene "Error:" en otros casos
             task_widget.update_progress(0)
 
     def cancel_task(self, worker, task_widget):
         """Cancela la tarea forzando la terminación del worker."""
-        worker.terminate()
+        worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)
