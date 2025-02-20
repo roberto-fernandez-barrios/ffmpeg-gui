@@ -43,7 +43,7 @@ def detect_image_prefix(folder_path):
     prefix = match.group(1)
     return prefix, True
 
-def convert_images_to_video_command(folder_path, fps, audio_path=None, user_format="mp4 (H.264 8-bit)", 
+def convert_images_to_video_command(folder_path, fps, audio_path=None, user_format="mp4 (H.264 8-bit)",
                                     crf="19", fade_in_duration=1, fade_out_duration=1, pix_fmt=None):
     """
     Construye un comando FFmpeg para convertir una secuencia de imágenes en un video.
@@ -52,16 +52,18 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         folder_path: Carpeta que contiene la secuencia de imágenes.
         fps: Frames por segundo para el video de salida.
         audio_path: Ruta opcional a un archivo de audio.
-        user_format: Formato y códec de salida.
+        user_format: Formato y códec de salida (por ejemplo, "mp4 (H.264 8-bit)", "mp4 (H.265 10-bit)", etc).
         crf: Factor de tasa constante para la calidad del video.
         fade_in_duration: Duración del fundido de entrada.
         fade_out_duration: Duración del fundido de salida.
-        pix_fmt: (Opcional) Formato de pixel YUV, ej. "yuv420p", "yuv422p" o "yuv444p".
+        pix_fmt: (Opcional) Formato de pixel YUV deseado, ej. "yuv420p", "yuv422p" o "yuv444p". 
+                 Si se especifica, se usará para la opción -pix_fmt, independientemente del bit depth.
     
     Retorna:
         (command, output_file) donde command es una lista de argumentos FFmpeg y
         output_file es la ruta del video generado.
     """
+    import os, re, time
     files = sorted(os.listdir(folder_path))
     if not files:
         return [], ""
@@ -94,7 +96,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     else:
         extension = "mp4"  # Valor por defecto
 
-    # Construye la ruta del archivo de salida
+    # Construye la ruta del archivo de salida y genera un nombre único si es necesario
     output_file = os.path.join(folder_path, f"{prefix}video.{extension}")
     output_file = get_unique_filename(output_file)
 
@@ -102,7 +104,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     image_pattern = os.path.join(folder_path, f"{prefix}%0{width}d.png")
     command = [
         "ffmpeg",
-        "-y",
+        "-y",  # Sobrescribe sin preguntar
         "-framerate", str(fps),
         "-i", image_pattern
     ]
@@ -110,23 +112,36 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     if audio_path:
         command.extend(["-i", audio_path])
 
-    # Define el valor de pix_fmt a usar: si se especifica, lo usa; de lo contrario, usa el por defecto
-    # para cada caso.
-    # Nota: Esto afecta a las opciones "8-bit". Para 10-bit o 16-bit, se suelen usar otros pixeles.
+    # Selección del códec y pixel format. Si pix_fmt está definido, se usa ese valor;
+    # de lo contrario, se asigna un valor por defecto según el user_format y bit depth.
     if user_format == "mp4 (H.265 8-bit)":
-        command.extend(["-c:v", "libx265", "-pix_fmt", pix_fmt if pix_fmt else "yuv420p", "-crf", crf])
+        default_fmt = "yuv420p"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx265", "-pix_fmt", chosen_fmt, "-crf", crf])
     elif user_format == "mp4 (H.265 10-bit)":
-        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p10le", "-crf", crf])
+        default_fmt = "yuv420p10le"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx265", "-pix_fmt", chosen_fmt, "-crf", crf])
     elif user_format == "mp4 (H.265 16-bit)":
-        command.extend(["-c:v", "libx265", "-pix_fmt", "yuv420p16le", "-crf", crf])
+        default_fmt = "yuv420p16le"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx265", "-pix_fmt", chosen_fmt, "-crf", crf])
     elif user_format == "mp4 (H.264 10-bit)":
-        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p10le", "-crf", crf])
+        default_fmt = "yuv420p10le"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx264", "-pix_fmt", chosen_fmt, "-crf", crf])
     elif user_format == "mp4 (H.264 16-bit)":
-        command.extend(["-c:v", "libx264", "-pix_fmt", "yuv420p16le", "-crf", crf])
+        default_fmt = "yuv420p16le"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx264", "-pix_fmt", chosen_fmt, "-crf", crf])
     elif user_format == "mp4 (H.264 8-bit)" or user_format.lower().startswith("mp4"):
-        command.extend(["-c:v", "libx264", "-pix_fmt", pix_fmt if pix_fmt else "yuv420p", "-crf", crf])
+        default_fmt = "yuv420p"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx264", "-pix_fmt", chosen_fmt, "-crf", crf])
     else:
-        command.extend(["-c:v", "libx264", "-pix_fmt", pix_fmt if pix_fmt else "yuv420p", "-crf", crf])
+        default_fmt = "yuv420p"
+        chosen_fmt = pix_fmt if pix_fmt else default_fmt
+        command.extend(["-c:v", "libx264", "-pix_fmt", chosen_fmt, "-crf", crf])
 
     # Agrega filtros de fundido si la duración lo permite
     if duration > (fade_in_duration + fade_out_duration):
@@ -138,8 +153,11 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
 
     command.append(output_file)
 
+    # Para debugging: muestra en consola el comando construido
     print(" ".join(command))
+
     return command, output_file
+
 
 
 def add_audio_to_video_command(video_path, audio_path, output_format="mp4"):
