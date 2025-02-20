@@ -36,32 +36,38 @@ class ImagesTab(QWidget):
         group_config = QGroupBox("Configuración de Conversión")
         config_layout = QVBoxLayout()
 
+        # Configuración de FPS
         self.fps_label = QLabel("FPS (Frames por segundo):")
         config_layout.addWidget(self.fps_label)
         self.fps_input = QLineEdit("30")
         config_layout.addWidget(self.fps_input)
 
+        # Configuración de CRF
         self.crf_label = QLabel("CRF:")
         config_layout.addWidget(self.crf_label)
         self.crf_input = QLineEdit("19")
         config_layout.addWidget(self.crf_input)
 
+        # Configuración de fundido de entrada (fade in)
         self.fade_in_label = QLabel("Fade In (segundos):")
         config_layout.addWidget(self.fade_in_label)
         self.fade_in_input = QLineEdit("1")
         config_layout.addWidget(self.fade_in_input)
 
+        # Configuración de fundido de salida (fade out)
         self.fade_out_label = QLabel("Fade Out (segundos):")
         config_layout.addWidget(self.fade_out_label)
         self.fade_out_input = QLineEdit("1")
         config_layout.addWidget(self.fade_out_input)
 
+        # Selección opcional de archivo de audio
         self.audio_label = QLabel("Archivo de audio (opcional):")
         config_layout.addWidget(self.audio_label)
         self.btn_select_audio = QPushButton("Seleccionar archivo de audio")
         self.btn_select_audio.clicked.connect(self.select_audio_file)
         config_layout.addWidget(self.btn_select_audio)
 
+        # Selección del formato de salida
         self.img_format_label = QLabel("Formato de salida:")
         config_layout.addWidget(self.img_format_label)
         self.img_format_combo = QComboBox()
@@ -77,6 +83,13 @@ class ImagesTab(QWidget):
             "mov"
         ])
         config_layout.addWidget(self.img_format_combo)
+
+        # NUEVO: Selección del formato YUV
+        self.yuv_label = QLabel("Formato YUV:")
+        config_layout.addWidget(self.yuv_label)
+        self.yuv_combo = QComboBox()
+        self.yuv_combo.addItems(["yuv420p", "yuv422p", "yuv444p"])
+        config_layout.addWidget(self.yuv_combo)
 
         group_config.setLayout(config_layout)
         layout.addWidget(group_config)
@@ -134,21 +147,21 @@ class ImagesTab(QWidget):
         Inicia la conversión de imágenes a video y crea una nueva tarea en la interfaz para mostrar su progreso.
         """
         if not self.image_folder:
-            error_widget = ConversionTaskWidget("Error: Sin carpeta")
-            error_widget.update_status("Selecciona una carpeta de imágenes primero.")
-            self.tasks_layout.addWidget(error_widget)
+            self.status_label.setText("Selecciona una carpeta de imágenes primero.")
             return
 
         fps = self.fps_input.text()
         audio_path = self.audio_path  # Puede ser None si no se seleccionó audio
         user_format = self.img_format_combo.currentText()
+        
+        # Se obtiene la selección del formato YUV
+        selected_yuv = self.yuv_combo.currentText()
 
+        # Resto del código de validación...
         images = sorted(os.listdir(self.image_folder))
         total_images = len([img for img in images if img.lower().endswith('.png')])
         if total_images == 0:
-            error_widget = ConversionTaskWidget("Error: Sin imágenes")
-            error_widget.update_status("No se encontraron imágenes .png en la carpeta.")
-            self.tasks_layout.addWidget(error_widget)
+            self.status_label.setText("No se encontraron imágenes .png en la carpeta.")
             return
 
         crf = self.crf_input.text()
@@ -161,13 +174,12 @@ class ImagesTab(QWidget):
         except ValueError:
             fade_out = 1
 
+        # Construye el comando FFmpeg, pasando la selección de formato YUV
         command, output_file = convert_images_to_video_command(
-            self.image_folder, fps, audio_path, user_format, crf, fade_in, fade_out
+            self.image_folder, fps, audio_path, user_format, crf, fade_in, fade_out, selected_yuv
         )
         if not command:
-            error_widget = ConversionTaskWidget("Error: Patrón inválido")
-            error_widget.update_status("No se detectó el patrón correcto en las imágenes.")
-            self.tasks_layout.addWidget(error_widget)
+            self.status_label.setText("No se detectó el patrón correcto en las imágenes.")
             return
 
         # Se crea un widget de tarea para esta conversión
