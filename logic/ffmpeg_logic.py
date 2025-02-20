@@ -209,3 +209,36 @@ def parse_time_to_seconds(time_str):
         parts = list(map(int, time_str.split(":")))
         return sum(x * 60 ** i for i, x in enumerate(reversed(parts)))
     return int(time_str)
+
+
+def limit_kps_command(input_file, video_bitrate="57M", maxrate="60M", output_format="mp4"):
+    """
+    Construye un comando FFmpeg para limitar los kps (bitrate de video).
+
+    Parámetros:
+        input_file: Ruta del video de entrada.
+        video_bitrate: Bitrate de video deseado (ej. '57M').
+        maxrate: Tasa máxima de bits (ej. '60M').
+        output_format: Formato de salida del video.
+
+    Retorna:
+        (command, output_file) donde command es una lista de argumentos para FFmpeg
+        y output_file es la ruta del video generado.
+    """
+    import os
+    # Se obtiene la ruta base y se genera un nombre único para el video de salida
+    base = os.path.splitext(input_file)[0]
+    output_file = f"{base}_limited.{output_format}"
+    output_file = get_unique_filename(output_file)
+
+    command = [
+        "ffmpeg",
+        "-y",              # Sobrescribe sin preguntar
+        "-i", input_file,
+        "-c:v", "libx264",
+        "-b:v", video_bitrate,
+        "-maxrate", maxrate,
+        output_file
+    ]
+    print(" ".join(command))
+    return command, output_file
