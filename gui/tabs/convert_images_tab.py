@@ -51,13 +51,13 @@ class ImagesTab(QWidget):
         # Configuración de fundido de entrada (fade in)
         self.fade_in_label = QLabel("Fade In (segundos):")
         config_layout.addWidget(self.fade_in_label)
-        self.fade_in_input = QLineEdit("1")
+        self.fade_in_input = QLineEdit("0")
         config_layout.addWidget(self.fade_in_input)
 
         # Configuración de fundido de salida (fade out)
         self.fade_out_label = QLabel("Fade Out (segundos):")
         config_layout.addWidget(self.fade_out_label)
-        self.fade_out_input = QLineEdit("1")
+        self.fade_out_input = QLineEdit("0")
         config_layout.addWidget(self.fade_out_input)
 
         # Selección opcional de archivo de audio

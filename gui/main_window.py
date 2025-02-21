@@ -4,7 +4,8 @@ from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 from gui.tabs.convert_images_tab import ImagesTab
 from gui.tabs.add_audio_tab import VideoTab
 from gui.tabs.cut_video_tab import CutVideoTab
-from gui.tabs.limit_kps_tab import LimitKpsTab  # Importa el nuevo tab
+from gui.tabs.limit_kps_tab import LimitKpsTab
+from gui.tabs.scale_video_tab import ScaleVideoTab
 
 class FFmpegGUI(QWidget):
     def __init__(self):
@@ -28,7 +29,10 @@ class FFmpegGUI(QWidget):
         self.cut_video_tab = CutVideoTab()
         self.tabs.addTab(self.cut_video_tab, "Cortar Video")
         
-        self.limit_kps_tab = LimitKpsTab()  # Nuevo tab para limitar kps
+        self.limit_kps_tab = LimitKpsTab()
         self.tabs.addTab(self.limit_kps_tab, "Limitar Kps")
+
+        self.scale_video_tab = ScaleVideoTab()
+        self.tabs.addTab(self.scale_video_tab, "Escalar Video")
 
         self.setLayout(main_layout)

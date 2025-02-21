@@ -262,3 +262,41 @@ def limit_kps_command(input_file, video_bitrate="57M", maxrate="60M", output_for
     ]
     print(" ".join(command))
     return command, output_file
+
+def scale_video_command(input_file, scale_width, scale_height, preset="slow", crf="18", output_format="mp4"):
+    """
+    Construye un comando FFmpeg para reescalar un video sin recortar, lo que implica que se deforme si es necesario.
+    
+    Parámetros:
+        input_file: Ruta del video de entrada.
+        scale_width: Ancho deseado para el video escalado.
+        scale_height: Altura deseada para el video escalado.
+        preset: Preset de FFmpeg para la codificación (por defecto "slow").
+        crf: Factor de tasa constante para la calidad (por defecto "18").
+        output_format: Formato de salida del video (por defecto "mp4").
+        
+    Retorna:
+        (command, output_file) donde command es la lista de argumentos FFmpeg y 
+        output_file es la ruta del video generado.
+    """
+    import os
+    # Construye el nombre de salida basado en el video de entrada y agrega un sufijo
+    base = os.path.splitext(input_file)[0]
+    output_file = f"{base}_scaled.{output_format}"
+    output_file = get_unique_filename(output_file)
+    
+    # Construye la lista de argumentos para FFmpeg
+    command = [
+        "ffmpeg",
+        "-y",                          # Sobrescribe sin preguntar
+        "-i", input_file,              # Video de entrada
+        "-vf", f"scale={scale_width}:{scale_height}",  # Filtro de escalado sin mantener aspecto
+        "-preset", preset,             # Preset de codificación
+        "-crf", crf,                   # Calidad de compresión
+        output_file
+    ]
+    
+    # Muestra el comando construido en la consola (útil para debugging)
+    print(" ".join(command))
+    
+    return command, output_file

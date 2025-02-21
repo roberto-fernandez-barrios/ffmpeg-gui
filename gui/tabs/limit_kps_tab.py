@@ -45,12 +45,12 @@ class LimitKpsTab(QWidget):
         group_params = QGroupBox("Parámetros de Limitación")
         params_layout = QVBoxLayout()
         # Bitrate de video
-        self.bit_rate_label = QLabel("Bitrate de video (ej. 57M):")
+        self.bit_rate_label = QLabel("Bitrate de video (k = kbps, M = Mbps, G = Gbps):")
         params_layout.addWidget(self.bit_rate_label)
         self.bit_rate_input = QLineEdit("57M")
         params_layout.addWidget(self.bit_rate_input)
         # Maxrate
-        self.max_rate_label = QLabel("Maxrate (ej. 60M):")
+        self.max_rate_label = QLabel("Maxrate (k = kbps, M = Mbps, G = Gbps):")
         params_layout.addWidget(self.max_rate_label)
         self.max_rate_input = QLineEdit("60M")
         params_layout.addWidget(self.max_rate_input)
