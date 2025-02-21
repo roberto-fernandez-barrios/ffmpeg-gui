@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QScrollArea
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QFontMetrics
 from PyQt6.QtCore import QUrl
 
 # Función que genera el comando para agregar audio
@@ -155,20 +155,24 @@ class VideoTab(QWidget):
             task_widget.update_progress(100)
             if message and os.path.exists(message):
                 normalized_path = os.path.abspath(message).replace("\\", "/")
-                # Se actualiza el texto del nombre para mostrar un enlace
-                task_widget.name_label.setText(
-                    f"<a style='color:blue; text-decoration:underline;' href='#'>{os.path.basename(message)}</a>"
-                )
-                task_widget.name_label.setToolTip(message)
+                full_name = os.path.basename(message)
+                prefix = "Video: "  # Prefijo para tareas de video (adición de audio, etc.)
+                full_text = prefix + full_name
+                metrics = QFontMetrics(task_widget.name_label.font())
+                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
+                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
+                task_widget.name_label.setText(link_html)
+                task_widget.name_label.setToolTip(full_text)
                 task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
         elif message.lower() == "cancelado":
-            task_widget.update_status(message)  # Muestra "Proceso cancelado por el usuario." sin "Error: "
+            task_widget.update_status(message)
             task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")  # Mantiene "Error:" en otros casos
+            task_widget.update_status(f"Error: {message}")
             task_widget.update_progress(0)
+
 
     def cancel_video_task(self, worker, task_widget):
         """Cancela la tarea de conversión forzando la terminación del worker."""

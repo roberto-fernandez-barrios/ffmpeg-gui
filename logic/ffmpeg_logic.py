@@ -300,3 +300,48 @@ def scale_video_command(input_file, scale_width, scale_height, preset="slow", cr
     print(" ".join(command))
     
     return command, output_file
+
+def crop_video_command(input_file, crop_top=0, crop_bottom=0, crop_left=0, crop_right=0, output_format="mp4"):
+    """
+    Construye un comando FFmpeg para recortar un video, eliminando partes de sus bordes.
+    
+    Parámetros:
+      input_file: Ruta del video de entrada.
+      crop_top: Píxeles a recortar desde la parte superior.
+      crop_bottom: Píxeles a recortar desde la parte inferior.
+      crop_left: Píxeles a recortar desde la parte izquierda.
+      crop_right: Píxeles a recortar desde la parte derecha.
+      output_format: Formato de salida del video (por defecto "mp4").
+    
+    Retorna:
+      (command, output_file) donde command es la lista de argumentos FFmpeg y 
+      output_file es la ruta del video recortado.
+      
+    Ejemplo:
+      Si el video tiene una altura de 100 y se quiere recortar 20 píxeles de arriba y 10 de abajo,
+      se llamaría: crop_video_command("input.mp4", crop_top=20, crop_bottom=10)
+      Esto generará un video con altura = ih - (20+10).
+    """
+    import os
+    # Construye el nombre de salida
+    base = os.path.splitext(input_file)[0]
+    output_file = f"{base}_cropped.{output_format}"
+    output_file = get_unique_filename(output_file)
+    
+    # Construye el filtro de recorte:
+    # El ancho resultante: iw - (crop_left + crop_right)
+    # La altura resultante: ih - (crop_top + crop_bottom)
+    # El offset x = crop_left y el offset y = crop_top
+    crop_filter = f"crop=iw-{crop_left + crop_right}:ih-{crop_top + crop_bottom}:{crop_left}:{crop_top}"
+    
+    command = [
+        "ffmpeg",
+        "-y",  # Sobrescribe sin preguntar
+        "-i", input_file,
+        "-vf", crop_filter,
+        output_file
+    ]
+    
+    print(" ".join(command))
+    return command, output_file
+

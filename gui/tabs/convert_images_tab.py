@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
     QComboBox, QFileDialog, QScrollArea, QFrame
 )
 from PyQt6.QtCore import Qt
-from gui.widgets import ClickableLabel  # Widget personalizado (si lo necesitas en otra parte)
+from PyQt6.QtGui import QFontMetrics, QFont, QDesktopServices
 from gui.task_widget import ConversionTaskWidget  # Nuestra nueva clase de tarea
 from logic.ffmpeg_logic import convert_images_to_video_command
 from logic.ffmpeg_worker import FFmpegWorker
@@ -203,12 +203,26 @@ class ImagesTab(QWidget):
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
+            if message and os.path.exists(message):
+                normalized_path = os.path.abspath(message).replace("\\", "/")
+                full_name = os.path.basename(message)
+                prefix = "Conversión: "
+                full_text = prefix + full_name
+                metrics = QFontMetrics(task_widget.name_label.font())
+                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
+                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
+                task_widget.name_label.setText(link_html)
+                task_widget.name_label.setToolTip(full_text)
+                task_widget.name_label.linkActivated.connect(
+                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
+                )
         elif message.lower() == "cancelado":
-            task_widget.update_status(message)  # Solo muestra "Proceso cancelado por el usuario."
+            task_widget.update_status(message)  # Muestra "Cancelado" sin anteponer "Error:"
             task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")  # Mantiene "Error:" en otros casos
+            task_widget.update_status(f"Error: {message}")
             task_widget.update_progress(0)
+
 
     def cancel_conversion(self, worker, task_widget):
         """

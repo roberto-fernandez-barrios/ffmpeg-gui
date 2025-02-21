@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QScrollArea, QFileDialog
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QFontMetrics
 from PyQt6.QtCore import QUrl
 
 # Importa la función que genera el comando FFmpeg para limitar kps
@@ -129,25 +129,30 @@ class LimitKpsTab(QWidget):
         worker.start()
 
     def handle_task_finished(self, task_widget, success, message):
-        """Actualiza el widget de la tarea según el resultado del proceso."""
+        """Actualiza el widget de la tarea según el resultado de la conversión."""
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
             if message and os.path.exists(message):
                 normalized_path = os.path.abspath(message).replace("\\", "/")
-                task_widget.name_label.setText(
-                    f"<a style='color:blue; text-decoration:underline;' href='#'>{os.path.basename(message)}</a>"
-                )
-                task_widget.name_label.setToolTip(message)
+                full_name = os.path.basename(message)
+                prefix = "Limitación: "  # Prefijo para tareas de conversión
+                full_text = prefix + full_name
+                metrics = QFontMetrics(task_widget.name_label.font())
+                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
+                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
+                task_widget.name_label.setText(link_html)
+                task_widget.name_label.setToolTip(full_text)
                 task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
         elif message.lower() == "cancelado":
-            task_widget.update_status(message)  # Evita agregar "Error: "
+            task_widget.update_status(message)
             task_widget.update_progress(0)
         else:
-            task_widget.update_status(f"Error: {message}")  # Mantiene "Error:" en otros casos
+            task_widget.update_status(f"Error: {message}")
             task_widget.update_progress(0)
+
 
     def cancel_task(self, worker, task_widget):
         """Cancela la tarea forzando la terminación del worker."""

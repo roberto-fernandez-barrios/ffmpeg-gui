@@ -6,13 +6,14 @@ from gui.tabs.add_audio_tab import VideoTab
 from gui.tabs.cut_video_tab import CutVideoTab
 from gui.tabs.limit_kps_tab import LimitKpsTab
 from gui.tabs.scale_video_tab import ScaleVideoTab
+from gui.tabs.crop_video_tab import CropVideoTab
 
 class FFmpegGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.workers = []  # Lista para almacenar los workers activos
         self.setWindowTitle("FFmpeg GUI")
-        self.setGeometry(100, 100, 600, 500)  # Ajusta el tamaño de la ventana según lo necesites
+        self.setGeometry(100, 100, 650, 500)  # Ajusta el tamaño de la ventana según lo necesites
         self.init_ui()
 
     def init_ui(self):
@@ -34,5 +35,8 @@ class FFmpegGUI(QWidget):
 
         self.scale_video_tab = ScaleVideoTab()
         self.tabs.addTab(self.scale_video_tab, "Escalar Video")
+
+        self.crop_video_tab = CropVideoTab()
+        self.tabs.addTab(self.crop_video_tab, "Recortar Video")
 
         self.setLayout(main_layout)
