@@ -345,3 +345,69 @@ def crop_video_command(input_file, crop_top=0, crop_bottom=0, crop_left=0, crop_
     print(" ".join(command))
     return command, output_file
 
+def remove_audio_command(video_path, output_format="mp4"):
+    """
+    Construye un comando FFmpeg para quitar el audio de un video.
+    
+    Parámetros:
+        video_path: Ruta al video de entrada (con audio).
+        output_format: Formato de salida del video (por defecto "mp4").
+        
+    Retorna:
+        (command, output_file) donde command es la lista de argumentos FFmpeg y
+        output_file es la ruta del video resultante sin audio.
+        
+    Comando de referencia:
+        ffmpeg -y -i video_path -c:v copy -an output_file
+    """
+    import os
+    base = os.path.splitext(video_path)[0]
+    output_file = f"{base}_SIN_AUDIO.{output_format}"
+    output_file = get_unique_filename(output_file)
+    command = [
+        "ffmpeg",
+        "-y",                   # Sobrescribe sin preguntar
+        "-i", video_path,       # Video de entrada
+        "-c:v", "copy",         # Copia el video sin recodificar
+        "-an",                  # Elimina el audio
+        output_file
+    ]
+    print(" ".join(command))
+    return command, output_file
+
+
+def replace_audio_command(video_path, new_audio_path, output_format="mp4"):
+    """
+    Construye un comando FFmpeg para sustituir la pista de audio de un video por una nueva.
+    
+    Parámetros:
+        video_path: Ruta al video original (con o sin audio).
+        new_audio_path: Ruta al nuevo archivo de audio.
+        output_format: Formato de salida del video (por defecto "mp4").
+        
+    Retorna:
+        (command, output_file) donde command es la lista de argumentos FFmpeg y
+        output_file es la ruta del video resultante con el nuevo audio.
+        
+    Comando de referencia:
+        ffmpeg -y -i video_path -i new_audio_path -c:v copy -c:a aac -b:a 192k -map 0:v:0 -map 1:a:0 -shortest output_file
+    """
+    import os
+    base = os.path.splitext(video_path)[0]
+    output_file = f"{base}_REPLACE_AUDIO.{output_format}"
+    output_file = get_unique_filename(output_file)
+    command = [
+        "ffmpeg",
+        "-y",                   # Sobrescribe sin preguntar
+        "-i", video_path,       # Video de entrada
+        "-i", new_audio_path,   # Nuevo audio a incorporar
+        "-c:v", "copy",         # Copia el video sin recodificar
+        "-c:a", "aac",          # Codifica el audio a AAC
+        "-b:a", "192k",         # Bitrate del audio
+        "-map", "0:v:0",        # Selecciona el stream de video del primer input
+        "-map", "1:a:0",        # Selecciona el stream de audio del segundo input
+        "-shortest",            # Finaliza cuando el audio o video termine, el que ocurra primero
+        output_file
+    ]
+    print(" ".join(command))
+    return command, output_file
