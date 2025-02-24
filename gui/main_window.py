@@ -2,7 +2,6 @@
 
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QTabWidget
 from gui.tabs.convert_images_tab import ImagesTab
-from gui.tabs.add_audio_tab import VideoTab
 from gui.tabs.cut_video_tab import CutVideoTab
 from gui.tabs.limit_kps_tab import LimitKpsTab
 from gui.tabs.scale_video_tab import ScaleVideoTab
@@ -13,7 +12,7 @@ class FFmpegGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.workers = []  # Lista para almacenar los workers activos
-        self.setWindowTitle("FFmpeg GUI")
+        self.setWindowTitle("FFmpeg GUI 2.6.1")
         self.setGeometry(100, 100, 650, 500)  # Ajusta el tamaño de la ventana según lo necesites
         self.init_ui()
 

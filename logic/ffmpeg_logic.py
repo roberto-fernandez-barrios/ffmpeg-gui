@@ -188,38 +188,63 @@ def add_audio_to_video_command(video_path, audio_path, output_format="mp4"):
     ]
     return command, output_file
 
-def cut_video_command(video_path, start_time, duration=None, end_time=None, output_format="mp4"):
+def cut_video_command(video_path, start_time, duration=None, end_time=None, output_format="mp4", cut_mode="time"):
     """
     Construye un comando FFmpeg para cortar un segmento de un video.
-    
+
+    Permite cortar por tiempo (segundos) o por cantidad de frames.
+
     Parámetros:
         video_path: Ruta al video de entrada.
         start_time: Tiempo de inicio para el corte (segundos o hh:mm:ss).
-        duration: Duración del segmento a cortar (opcional).
-        end_time: Tiempo final del corte (opcional; si se usa, se calcula la duración).
+        duration: 
+            - En modo "time": duración del segmento a cortar (segundos).
+            - En modo "frames": número de frames a incluir en la salida.
+            Es opcional.
+        end_time: Tiempo final del corte (segundos o hh:mm:ss, opcional; solo válido en modo "time").
         output_format: Formato de salida del video cortado.
-    
+        cut_mode: Modo de corte, "time" (por tiempo) o "frames" (por número de frames). Por defecto es "time".
+
     Retorna:
         (command, output_file) con el comando FFmpeg y la ruta del video cortado.
+
+    Notas:
+        - En modo "time", si se especifica end_time, se calcula la duración como (end_time - start_time).
+        - En modo "frames", end_time se ignora y se utiliza el parámetro duration como la cantidad de frames.
     """
+    import os
+    # Genera la ruta de salida
     base = os.path.splitext(video_path)[0]
-    output_file = f"{base}_cut.mp4"
-    # Renombra el archivo de salida si ya existe
+    output_file = f"{base}_cut.{output_format}"
     output_file = get_unique_filename(output_file)
 
+    # Inicia el comando con el parámetro -ss para indicar el tiempo de inicio
     command = ["ffmpeg", "-y", "-ss", str(start_time), "-i", video_path]
 
-    if end_time:
-        # Convierte start_time y end_time a segundos y calcula la duración real
-        start_seconds = parse_time_to_seconds(start_time)
-        end_seconds = parse_time_to_seconds(end_time)
-        real_duration = max(0, end_seconds - start_seconds)  # Asegura duración positiva
-        command.extend(["-t", str(real_duration)])
-    elif duration:
-        command.extend(["-t", str(duration)])
+    if cut_mode == "time":
+        if end_time:
+            # Convierte start_time y end_time a segundos para calcular la duración
+            start_seconds = parse_time_to_seconds(start_time)
+            end_seconds = parse_time_to_seconds(end_time)
+            real_duration = max(0, end_seconds - start_seconds)
+            command.extend(["-t", str(real_duration)])
+        elif duration:
+            command.extend(["-t", str(duration)])
+    elif cut_mode == "frames":
+        if duration:
+            # En modo "frames", interpretamos duration como el número de frames
+            command.extend(["-frames:v", str(duration)])
+        # Si no se proporciona duration en modo "frames", se podría decidir no agregar el parámetro.
+    else:
+        # Si se pasa un modo desconocido, se usa el modo "time" por defecto
+        if duration:
+            command.extend(["-t", str(duration)])
 
+    # Se utiliza -c copy para evitar reencodeo y conservar la calidad
     command.extend(["-c", "copy", output_file])
+    print(" ".join(command))
     return command, output_file
+
 
 def parse_time_to_seconds(time_str):
     """
