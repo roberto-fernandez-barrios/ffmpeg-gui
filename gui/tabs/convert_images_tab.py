@@ -3,8 +3,9 @@
 import os
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
-    QComboBox, QFileDialog, QScrollArea, QFrame
+    QComboBox, QFileDialog, QScrollArea, QFrame, QCheckBox
 )
+from PyQt6.QtCore import QUrl
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFontMetrics, QFont, QDesktopServices
 from gui.task_widget import ConversionTaskWidget  # Nuestra nueva clase de tarea
@@ -67,6 +68,12 @@ class ImagesTab(QWidget):
         self.btn_select_audio.clicked.connect(self.select_audio_file)
         config_layout.addWidget(self.btn_select_audio)
 
+        # Selección de prioridad de audio
+        self.prioritize_audio_checkbox = QCheckBox("Priorizar audio")
+        self.prioritize_audio_checkbox.setToolTip("Si se marca, el video se extenderá (con fondo negro) hasta finalizar el audio; de lo contrario, se recorta el audio a la duración del video.")
+        self.prioritize_audio_checkbox.setChecked(False)  # Por defecto, se prioriza el video
+        config_layout.addWidget(self.prioritize_audio_checkbox)
+
         # Selección del formato de salida
         self.img_format_label = QLabel("Formato de salida:")
         config_layout.addWidget(self.img_format_label)
@@ -84,7 +91,7 @@ class ImagesTab(QWidget):
         ])
         config_layout.addWidget(self.img_format_combo)
 
-        # NUEVO: Selección del formato YUV
+        # Selección del formato YUV
         self.yuv_label = QLabel("Formato YUV:")
         config_layout.addWidget(self.yuv_label)
         self.yuv_combo = QComboBox()
@@ -149,6 +156,9 @@ class ImagesTab(QWidget):
         if not self.image_folder:
             self.status_label.setText("Selecciona una carpeta de imágenes primero.")
             return
+        
+        # Se obtienen los valores de los controles de la interfaz
+        prioritize_audio = self.prioritize_audio_checkbox.isChecked()
 
         fps = self.fps_input.text()
         audio_path = self.audio_path  # Puede ser None si no se seleccionó audio
@@ -176,7 +186,8 @@ class ImagesTab(QWidget):
 
         # Construye el comando FFmpeg, pasando la selección de formato YUV
         command, output_file = convert_images_to_video_command(
-            self.image_folder, fps, audio_path, user_format, crf, fade_in, fade_out, selected_yuv
+            self.image_folder, fps, audio_path, user_format, crf, fade_in, fade_out, selected_yuv,
+            prioritize_audio=prioritize_audio
         )
         if not command:
             self.status_label.setText("No se detectó el patrón correcto en las imágenes.")

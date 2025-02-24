@@ -9,6 +9,7 @@ Módulo que contiene funciones para construir comandos FFmpeg para diversas oper
 import os
 import re
 import time
+import subprocess
 
 def get_unique_filename(file_path):
     """
@@ -43,8 +44,24 @@ def detect_image_prefix(folder_path):
     prefix = match.group(1)
     return prefix, True
 
+def get_audio_duration(audio_path):
+    """
+    Devuelve la duración en segundos del audio usando ffprobe.
+    """
+    cmd = [
+        "ffprobe", "-v", "error", "-select_streams", "a:0",
+        "-show_entries", "stream=duration", "-of", "default=noprint_wrappers=1:nokey=1", audio_path
+    ]
+    try:
+        output = subprocess.check_output(cmd, universal_newlines=True)
+        return float(output.strip())
+    except Exception as e:
+        print("Error obteniendo duración del audio:", e)
+        return 0
+
 def convert_images_to_video_command(folder_path, fps, audio_path=None, user_format="mp4 (H.264 8-bit)",
-                                    crf="19", fade_in_duration=1, fade_out_duration=1, pix_fmt=None):
+                                    crf="19", fade_in_duration=1, fade_out_duration=1, pix_fmt=None,
+                                    prioritize_audio=False):
     """
     Construye un comando FFmpeg para convertir una secuencia de imágenes en un video.
     
@@ -52,15 +69,17 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         folder_path: Carpeta que contiene la secuencia de imágenes.
         fps: Frames por segundo para el video de salida.
         audio_path: Ruta opcional a un archivo de audio.
-        user_format: Formato y códec de salida (por ejemplo, "mp4 (H.264 8-bit)", "mp4 (H.265 10-bit)", etc).
+        user_format: Formato y códec de salida.
         crf: Factor de tasa constante para la calidad del video.
         fade_in_duration: Duración del fundido de entrada.
         fade_out_duration: Duración del fundido de salida.
-        pix_fmt: (Opcional) Formato de pixel YUV deseado, ej. "yuv420p", "yuv422p" o "yuv444p". 
-                 Si se especifica, se usará para la opción -pix_fmt, independientemente del bit depth.
+        pix_fmt: (Opcional) Formato de pixel YUV, ej. "yuv420p", "yuv422p" o "yuv444p".
+        prioritize_audio: Booleano que indica si se debe priorizar el audio.
+            Si es True, se extiende el video con un filtro tpad para que coincida con
+            la duración del audio. Por defecto es False (se prioriza el video, con -shortest).
     
     Retorna:
-        (command, output_file) donde command es una lista de argumentos FFmpeg y
+        (command, output_file) donde command es la lista de argumentos FFmpeg y
         output_file es la ruta del video generado.
     """
     import os, re, time
@@ -82,7 +101,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         fps_val = float(fps)
     except ValueError:
         fps_val = 30.0
-    duration = num_images / fps_val if fps_val > 0 else 0
+    video_duration = num_images / fps_val if fps_val > 0 else 0
 
     # Determina la extensión de salida según el formato seleccionado
     if user_format.lower().startswith("mp4"):
@@ -96,7 +115,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     else:
         extension = "mp4"  # Valor por defecto
 
-    # Construye la ruta del archivo de salida y genera un nombre único si es necesario
+    # Construye la ruta del archivo de salida y genera un nombre único
     output_file = os.path.join(folder_path, f"{prefix}video.{extension}")
     output_file = get_unique_filename(output_file)
 
@@ -112,8 +131,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     if audio_path:
         command.extend(["-i", audio_path])
 
-    # Selección del códec y pixel format. Si pix_fmt está definido, se usa ese valor;
-    # de lo contrario, se asigna un valor por defecto según el user_format y bit depth.
+    # Selección del códec y pixel format
     if user_format == "mp4 (H.265 8-bit)":
         default_fmt = "yuv420p"
         chosen_fmt = pix_fmt if pix_fmt else default_fmt
@@ -143,21 +161,36 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         chosen_fmt = pix_fmt if pix_fmt else default_fmt
         command.extend(["-c:v", "libx264", "-pix_fmt", chosen_fmt, "-crf", crf])
 
+    # Construcción de filtros de video
+    vf_filters = []
     # Agrega filtros de fundido si la duración lo permite
-    if duration > (fade_in_duration + fade_out_duration):
-        fade_filter = f"fade=t=in:st=0:d={fade_in_duration},fade=t=out:st={duration - fade_out_duration}:d={fade_out_duration}"
-        command.extend(["-vf", fade_filter])
+    if video_duration > (fade_in_duration + fade_out_duration):
+        fade_filter = f"fade=t=in:st=0:d={fade_in_duration},fade=t=out:st={video_duration - fade_out_duration}:d={fade_out_duration}"
+        vf_filters.append(fade_filter)
+    if audio_path and prioritize_audio:
+        # Priorizar audio: extender el video para que tenga la duración del audio.
+        audio_duration = get_audio_duration(audio_path)
+        padding = audio_duration - video_duration
+        if padding > 0:
+            # Agrega el filtro tpad para extender el video con la última imagen (o clonando la última frame)
+            tpad_filter = f"tpad=stop_mode=add:stop_duration={padding}"
+            vf_filters.append(tpad_filter)
+
+    if vf_filters:
+        # Si ya existe un filtro de video, se concatenan usando coma.
+        command.extend(["-vf", ",".join(vf_filters)])
 
     if audio_path:
-        command.extend(["-c:a", "aac", "-b:a", "192k", "-shortest"])
+        # Si no se prioriza el audio, se usa -shortest para cortar el audio al final del video.
+        if not prioritize_audio:
+            command.extend(["-c:a", "aac", "-b:a", "192k", "-shortest"])
+        else:
+            # Se prioriza el audio: codificar el audio normalmente, sin -shortest.
+            command.extend(["-c:a", "aac", "-b:a", "192k"])
 
     command.append(output_file)
-
-    # Para debugging: muestra en consola el comando construido
     print(" ".join(command))
-
     return command, output_file
-
 
 
 def add_audio_to_video_command(video_path, audio_path, output_format="mp4"):
