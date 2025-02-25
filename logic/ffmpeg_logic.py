@@ -31,18 +31,30 @@ def get_unique_filename(file_path):
 def detect_image_prefix(folder_path):
     """
     Detecta un prefijo común en los nombres de archivos de imagen (por ejemplo, 'algo_0001.png').
-    Retorna (prefix, True) si lo encuentra, o (None, False) si no.
+    Itera sobre los archivos en la carpeta y retorna (prefix, width, True) para el primer archivo 
+    que coincida con el patrón (prefijo seguido de al menos 2 dígitos), o (None, 0, False) si ninguno coincide.
     """
-    files = sorted(os.listdir(folder_path))
+    import os, re
+    # Filtra archivos indeseados, por ejemplo, Thumbs.db
+    files = sorted([f for f in os.listdir(folder_path) if f.lower() != "thumbs.db"])
+    
     if not files:
-        return None, False
+        print("[DEBUG] No se encontraron archivos en la carpeta.")
+        return None, 0, False
 
-    match = re.match(r"(.+_)(\d{4})", files[0])
-    if not match:
-        return None, False
+    # Itera sobre la lista de archivos buscando el primer que coincida con el patrón
+    for f in files:
+        match = re.match(r"(.+_)(\d{2,})", f)
+        if match:
+            prefix = match.group(1)
+            width = len(match.group(2))
+            print("[DEBUG] Prefijo detectado en", f, ":", prefix, "con ancho:", width)
+            return prefix, width, True
+        else:
+            print("[DEBUG] No se encontró coincidencia en el archivo:", f)
+            
+    return None, 0, False
 
-    prefix = match.group(1)
-    return prefix, True
 
 def get_audio_duration(audio_path):
     """
@@ -82,19 +94,13 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         (command, output_file) donde command es la lista de argumentos FFmpeg y
         output_file es la ruta del video generado.
     """
-    import os, re, time
+    prefix, width, found = detect_image_prefix(folder_path)
+    if not found:
+        return [], ""
+    
+    # Se obtienen todos los archivos y se filtran los que terminan en .png y que empiezan con el prefijo detectado
     files = sorted(os.listdir(folder_path))
-    if not files:
-        return [], ""
-    match = re.match(r"(.+_)(\d+)", files[0])
-    if not match:
-        return [], ""
-    prefix = match.group(1)
-    width = len(match.group(2))  # Número de dígitos en la numeración
-
-    # Filtra solo imágenes .png que inicien con el prefijo detectado
-    images = [f for f in os.listdir(folder_path)
-              if f.lower().endswith('.png') and f.startswith(prefix)]
+    images = [f for f in files if f.lower().endswith('.png') and f.startswith(prefix)]
     num_images = len(images)
 
     try:
@@ -172,7 +178,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         audio_duration = get_audio_duration(audio_path)
         padding = audio_duration - video_duration
         if padding > 0:
-            # Agrega el filtro tpad para extender el video con la última imagen (o clonando la última frame)
+            # Agrega el filtro tpad para extender el video con negro (stop_mode=add)
             tpad_filter = f"tpad=stop_mode=add:stop_duration={padding}"
             vf_filters.append(tpad_filter)
 

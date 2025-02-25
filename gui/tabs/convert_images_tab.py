@@ -154,7 +154,9 @@ class ImagesTab(QWidget):
         Inicia la conversión de imágenes a video y crea una nueva tarea en la interfaz para mostrar su progreso.
         """
         if not self.image_folder:
-            self.status_label.setText("Selecciona una carpeta de imágenes primero.")
+            error_widget = ConversionTaskWidget("Error: Sin carpeta")
+            error_widget.update_status("Selecciona una carpeta de imágenes primero.")
+            self.tasks_layout.addWidget(error_widget)
             return
         
         # Se obtienen los valores de los controles de la interfaz
@@ -171,7 +173,9 @@ class ImagesTab(QWidget):
         images = sorted(os.listdir(self.image_folder))
         total_images = len([img for img in images if img.lower().endswith('.png')])
         if total_images == 0:
-            self.status_label.setText("No se encontraron imágenes .png en la carpeta.")
+            error_widget = ConversionTaskWidget("Error: Patrón inválido")
+            error_widget.update_status("No se detectó un patrón correcto (se requiere al menos dos dígitos).")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         crf = self.crf_input.text()
@@ -190,7 +194,9 @@ class ImagesTab(QWidget):
             prioritize_audio=prioritize_audio
         )
         if not command:
-            self.status_label.setText("No se detectó el patrón correcto en las imágenes.")
+            error_widget = ConversionTaskWidget("Error: Patrón inválido")
+            error_widget.update_status("No se detectó un patrón correcto en las imágenes.")
+            self.tasks_layout.addWidget(error_widget)
             return
 
         # Se crea un widget de tarea para esta conversión
@@ -204,10 +210,11 @@ class ImagesTab(QWidget):
         worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
         # Conectamos la señal de finalización para actualizar el estado del widget
         worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message))
-        # Permite cancelar la tarea: en este ejemplo se llama a terminate() (nota: no es lo ideal en producción)
+        # Permite cancelar la tarea: se conecta la señal del widget a una función que llama a cancel()
         task_widget.cancelRequested.connect(lambda: self.cancel_conversion(worker, task_widget))
 
         worker.start()
+
 
     def handle_task_finished(self, task_widget, success, message):
         """Actualiza el widget de la tarea según el resultado de la conversión."""
