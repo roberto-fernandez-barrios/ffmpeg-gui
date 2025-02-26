@@ -47,13 +47,14 @@ def detect_image_prefix(folder_path):
         match = re.match(r"(.+_)(\d{2,})", f)
         if match:
             prefix = match.group(1)
+            start_number = int(match.group(2))  # Número inicial, por ejemplo 1210
             width = len(match.group(2))
-            print("[DEBUG] Prefijo detectado en", f, ":", prefix, "con ancho:", width)
-            return prefix, width, True
+            print("[DEBUG] Prefijo detectado en", f, ":", prefix, "con ancho:", width, "y start_number:", start_number)
+            return prefix, width, True, start_number
         else:
             print("[DEBUG] No se encontró coincidencia en el archivo:", f)
             
-    return None, 0, False
+    return None, 0, False, None
 
 
 def get_audio_duration(audio_path):
@@ -94,7 +95,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         (command, output_file) donde command es la lista de argumentos FFmpeg y
         output_file es la ruta del video generado.
     """
-    prefix, width, found = detect_image_prefix(folder_path)
+    prefix, width, found, start_number = detect_image_prefix(folder_path)
     if not found:
         return [], ""
     
@@ -130,6 +131,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     command = [
         "ffmpeg",
         "-y",  # Sobrescribe sin preguntar
+        "-start_number", str(start_number),  # Agrega el número inicial extraído del prefijo
         "-framerate", str(fps),
         "-i", image_pattern
     ]
