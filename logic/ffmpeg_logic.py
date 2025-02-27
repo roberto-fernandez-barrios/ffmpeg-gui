@@ -172,7 +172,7 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     # Construcción de filtros de video
     vf_filters = []
     # Agrega filtros de fundido si la duración lo permite
-    if video_duration > (fade_in_duration + fade_out_duration):
+    if (fade_in_duration > 0 or fade_out_duration > 0) and video_duration > (fade_in_duration + fade_out_duration):
         fade_filter = f"fade=t=in:st=0:d={fade_in_duration},fade=t=out:st={video_duration - fade_out_duration}:d={fade_out_duration}"
         vf_filters.append(fade_filter)
     if audio_path and prioritize_audio:
