@@ -32,3 +32,4 @@ logs/
 
 # Archivos ejecutables
 dist/
+build/

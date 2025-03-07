@@ -15,9 +15,8 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QFileDialog,
     QComboBox, QScrollArea
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices, QFontMetrics
-from PyQt6.QtCore import QUrl
 from logic.ffmpeg_worker import FFmpegWorker
 from gui.task_widget import ConversionTaskWidget
 
@@ -27,6 +26,8 @@ from logic.ffmpeg_logic import add_audio_to_video_command, remove_audio_command,
 class AudioEditingTab(QWidget):
     def __init__(self):
         super().__init__()
+        # Habilitar el drag & drop en la pestaña para video y audio
+        self.setAcceptDrops(True)
         self.video_file = None    # Video a editar
         self.audio_file = None    # Archivo de audio para añadir/sustituir
         self.init_ui()
@@ -91,6 +92,10 @@ class AudioEditingTab(QWidget):
         self.operation_changed()
 
     def select_video_file(self):
+        """
+        Abre un diálogo para seleccionar un archivo de video.
+        Actualiza el label y asigna la ruta a self.video_file.
+        """
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Seleccionar Video", "", "Videos (*.mp4 *.avi *.mkv *.mov)"
         )
@@ -100,6 +105,10 @@ class AudioEditingTab(QWidget):
             self.video_file = file_path
 
     def select_audio_file(self):
+        """
+        Abre un diálogo para seleccionar un archivo de audio.
+        Actualiza el label y asigna la ruta a self.audio_file.
+        """
         file_path, _ = QFileDialog.getOpenFileName(
             self, "Seleccionar Archivo de Audio", "", "Audio (*.mp3 *.wav *.aac)"
         )
@@ -109,15 +118,59 @@ class AudioEditingTab(QWidget):
             self.audio_file = file_path
 
     def operation_changed(self):
-        """Actualiza la visibilidad del grupo de audio según la operación seleccionada."""
+        """
+        Actualiza la visibilidad del grupo de audio según la operación seleccionada.
+        Si la operación es "Quitar audio", se oculta el grupo de selección de audio.
+        """
         op = self.operation_combo.currentText()
         if op == "Quitar audio":
             self.group_audio.hide()
         else:
             self.group_audio.show()
 
+    def dragEnterEvent(self, event):
+        """
+        Se llama cuando se arrastra un objeto sobre el widget.
+        Si el objeto contiene URLs (archivos), se acepta la acción.
+        """
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        """
+        Se llama cuando se suelta un objeto sobre el widget.
+        Itera sobre las URLs soltadas y, según la extensión, asigna la ruta
+        al video o al audio.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                # Definimos las extensiones de video y audio
+                video_exts = [".mp4", ".avi", ".mkv", ".mov"]
+                audio_exts = [".mp3", ".wav", ".aac"]
+                ext = os.path.splitext(file_path)[1].lower()
+                if ext in video_exts:
+                    # Si se suelta un archivo de video, lo asignamos a self.video_file
+                    self.video_file = file_path
+                    video_name = os.path.basename(file_path)
+                    self.video_label.setText(f"Video seleccionado: <span style='color:blue;'>{video_name}</span>")
+                elif ext in audio_exts:
+                    # Si se suelta un archivo de audio, lo asignamos a self.audio_file
+                    self.audio_file = file_path
+                    audio_name = os.path.basename(file_path)
+                    self.audio_label.setText(f"Audio seleccionado: <span style='color:blue;'>{audio_name}</span>")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
     def process_audio_edit(self):
-        """Inicia la operación de edición de audio según la opción seleccionada."""
+        """
+        Inicia la operación de edición de audio según la opción seleccionada.
+        Verifica que se haya seleccionado un video y, en su caso, un archivo de audio.
+        Construye el comando FFmpeg correspondiente y crea un worker para ejecutar la operación.
+        """
         if not self.video_file:
             error_widget = ConversionTaskWidget("Error: Sin video")
             error_widget.update_status("Selecciona un video primero.")
@@ -162,7 +215,11 @@ class AudioEditingTab(QWidget):
         worker.start()
 
     def handle_audio_edit_finished(self, task_widget, success, message):
-        """Actualiza el widget de la tarea según el resultado de la operación de edición de audio."""
+        """
+        Actualiza el widget de la tarea según el resultado de la operación de edición de audio.
+        Si es exitoso, muestra "Completado" y crea un enlace para abrir el archivo de salida.
+        En caso de error o cancelación, se actualiza el estado y la barra de progreso.
+        """
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
@@ -195,6 +252,10 @@ class AudioEditingTab(QWidget):
             task_widget.update_progress(0)
 
     def cancel_audio_edit(self, worker, task_widget):
+        """
+        Cancela la operación de edición de audio forzando la terminación del worker
+        y actualizando el widget de la tarea.
+        """
         worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)

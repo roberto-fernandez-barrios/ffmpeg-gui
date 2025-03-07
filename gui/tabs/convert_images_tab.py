@@ -5,8 +5,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
     QComboBox, QFileDialog, QScrollArea, QFrame, QCheckBox
 )
-from PyQt6.QtCore import QUrl
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtGui import QFontMetrics, QFont, QDesktopServices
 from gui.task_widget import ConversionTaskWidget  # Nuestra nueva clase de tarea
 from logic.ffmpeg_logic import convert_images_to_video_command
@@ -15,6 +14,8 @@ from logic.ffmpeg_worker import FFmpegWorker
 class ImagesTab(QWidget):
     def __init__(self):
         super().__init__()
+        # Habilitar el drag & drop en la pestaña
+        self.setAcceptDrops(True)
         self.image_folder = None  # Ruta a la carpeta con imágenes
         self.audio_path = None    # Ruta opcional al archivo de audio
         self.init_ui()
@@ -115,10 +116,7 @@ class ImagesTab(QWidget):
         # Se usa un QScrollArea para que la lista sea desplazable en caso de muchas tareas
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-
-        # Establece un tamaño mínimo para que el cuadro sea más grande
         scroll_area.setMinimumHeight(100)
-
         scroll_content = QWidget()
         scroll_content.setLayout(self.tasks_layout)
         scroll_area.setWidget(scroll_content)
@@ -149,6 +147,41 @@ class ImagesTab(QWidget):
             self.audio_label.setText(f"Audio seleccionado: <span style='color:blue;'>{audio_name}</span>")
             self.audio_path = file_path
 
+    def dragEnterEvent(self, event):
+        """
+        Se llama cuando se arrastra un objeto sobre el widget.
+        Si el objeto contiene URLs (archivos/carpetas), se acepta la acción.
+        """
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        """
+        Se llama cuando se suelta un objeto sobre el widget.
+        Se itera sobre las URLs soltadas y se determina si es un directorio (carpeta de imágenes)
+        o un archivo de audio.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                if os.path.isdir(file_path):
+                    # Si se suelta una carpeta, se asigna como carpeta de imágenes
+                    self.image_folder = file_path
+                    folder_name = os.path.basename(file_path)
+                    self.img_seq_label.setText(f"Carpeta seleccionada: <span style='color:blue;'>{folder_name}</span>")
+                elif os.path.isfile(file_path):
+                    # Si se suelta un archivo, verificamos si es audio
+                    ext = os.path.splitext(file_path)[1].lower()
+                    if ext in [".mp3", ".wav", ".aac"]:
+                        self.audio_path = file_path
+                        audio_name = os.path.basename(file_path)
+                        self.audio_label.setText(f"Audio seleccionado: <span style='color:blue;'>{audio_name}</span>")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
     def convert_images_to_video(self):
         """
         Inicia la conversión de imágenes a video y crea una nueva tarea en la interfaz para mostrar su progreso.
@@ -158,18 +191,15 @@ class ImagesTab(QWidget):
             error_widget.update_status("Selecciona una carpeta de imágenes primero.")
             self.tasks_layout.addWidget(error_widget)
             return
-        
+
         # Se obtienen los valores de los controles de la interfaz
         prioritize_audio = self.prioritize_audio_checkbox.isChecked()
-
         fps = self.fps_input.text()
         audio_path = self.audio_path  # Puede ser None si no se seleccionó audio
         user_format = self.img_format_combo.currentText()
-        
-        # Se obtiene la selección del formato YUV
         selected_yuv = self.yuv_combo.currentText()
 
-        # Resto del código de validación...
+        # Validación: se comprueba que la carpeta contenga imágenes en formato .png
         images = sorted(os.listdir(self.image_folder))
         total_images = len([img for img in images if img.lower().endswith('.png')])
         if total_images == 0:
@@ -212,12 +242,14 @@ class ImagesTab(QWidget):
         worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message))
         # Permite cancelar la tarea: se conecta la señal del widget a una función que llama a cancel()
         task_widget.cancelRequested.connect(lambda: self.cancel_conversion(worker, task_widget))
-
         worker.start()
 
-
     def handle_task_finished(self, task_widget, success, message):
-        """Actualiza el widget de la tarea según el resultado de la conversión."""
+        """
+        Actualiza el widget de la tarea según el resultado de la conversión.
+        Si es exitoso, muestra el estado 'Completado' y crea un enlace para abrir el archivo.
+        En caso de error o cancelación, se actualiza el estado y la barra de progreso.
+        """
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
@@ -241,11 +273,10 @@ class ImagesTab(QWidget):
             task_widget.update_status(f"Error: {message}")
             task_widget.update_progress(0)
 
-
     def cancel_conversion(self, worker, task_widget):
         """
         Cancela la conversión forzando la terminación del worker y actualizando el widget de la tarea.
         """
-        worker.cancel()  
+        worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)

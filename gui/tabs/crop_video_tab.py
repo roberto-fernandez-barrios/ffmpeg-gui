@@ -22,6 +22,8 @@ from gui.task_widget import ConversionTaskWidget
 class CropVideoTab(QWidget):
     def __init__(self):
         super().__init__()
+        # Habilitar drag & drop para la selección de video
+        self.setAcceptDrops(True)
         self.input_video = None  # Ruta del video de entrada
         self.init_ui()
         
@@ -100,6 +102,35 @@ class CropVideoTab(QWidget):
             video_name = os.path.basename(file_path)
             self.video_file_label.setText(f"Video de entrada: <span style='color:blue;'>{video_name}</span>")
             self.input_video = file_path
+
+    def dragEnterEvent(self, event):
+        """
+        Se llama cuando se arrastra un objeto sobre el widget.
+        Si el objeto contiene URLs (archivos), se acepta la acción.
+        """
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        """
+        Se llama cuando se suelta un objeto sobre el widget.
+        Si el archivo soltado es un video (extensiones .mp4, .avi, .mkv, .mov),
+        se asigna a self.input_video y se actualiza el label correspondiente.
+        """
+        if event.mimeData().hasUrls():
+            for url in event.mimeData().urls():
+                file_path = url.toLocalFile()
+                video_exts = [".mp4", ".avi", ".mkv", ".mov"]
+                ext = os.path.splitext(file_path)[1].lower()
+                if ext in video_exts:
+                    self.input_video = file_path
+                    video_name = os.path.basename(file_path)
+                    self.video_file_label.setText(f"Video de entrada: <span style='color:blue;'>{video_name}</span>")
+            event.acceptProposedAction()
+        else:
+            event.ignore()
             
     def crop_video(self):
         """Inicia el proceso de recorte del video según los parámetros indicados."""
@@ -161,7 +192,6 @@ class CropVideoTab(QWidget):
                 task_widget.name_label.linkActivated.connect(
                     lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
                 )
-
         elif message.lower() == "cancelado":
             task_widget.update_status(message)
             task_widget.update_progress(0)
