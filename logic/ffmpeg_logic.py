@@ -95,15 +95,24 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         (command, output_file) donde command es la lista de argumentos FFmpeg y
         output_file es la ruta del video generado.
     """
+    # Se detecta el prefijo, ancho y número inicial (esto se asume que ya funciona)
     prefix, width, found, start_number = detect_image_prefix(folder_path)
     if not found:
         return [], ""
     
-    # Se obtienen todos los archivos y se filtran los que terminan en .png y que empiezan con el prefijo detectado
+    # Establecemos las extensiones válidas (png, jpg, jpeg)
+    valid_extensions = ('.png', '.jpg', '.jpeg')
     files = sorted(os.listdir(folder_path))
-    images = [f for f in files if f.lower().endswith('.png') and f.startswith(prefix)]
+    # Se filtran los archivos que terminen en alguna de las extensiones válidas y empiecen con el prefijo detectado
+    images = [f for f in files if f.lower().endswith(valid_extensions) and f.startswith(prefix)]
     num_images = len(images)
-
+    if num_images == 0:
+        # Si no se encontraron imágenes con alguna de las extensiones válidas, se puede abortar o notificar
+        return [], ""
+    
+    # Obtenemos la extensión de la primera imagen válida para construir el patrón
+    ext = os.path.splitext(images[0])[1]  # Ejemplo: ".jpg" o ".png"
+    
     try:
         fps_val = float(fps)
     except ValueError:
@@ -126,12 +135,12 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
     output_file = os.path.join(folder_path, f"{prefix}video.{extension}")
     output_file = get_unique_filename(output_file)
 
-    # Construye el patrón de entrada para las imágenes
-    image_pattern = os.path.join(folder_path, f"{prefix}%0{width}d.png")
+    # Construye el patrón de entrada para las imágenes, usando la extensión obtenida
+    image_pattern = os.path.join(folder_path, f"{prefix}%0{width}d{ext}")
     command = [
         "ffmpeg",
         "-y",  # Sobrescribe sin preguntar
-        "-start_number", str(start_number),  # Agrega el número inicial extraído del prefijo
+        "-start_number", str(start_number),  # Número inicial extraído del prefijo
         "-framerate", str(fps),
         "-i", image_pattern
     ]
@@ -193,7 +202,6 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
         if not prioritize_audio:
             command.extend(["-c:a", "aac", "-b:a", "192k", "-shortest"])
         else:
-            # Se prioriza el audio: codificar el audio normalmente, sin -shortest.
             command.extend(["-c:a", "aac", "-b:a", "192k"])
 
     command.append(output_file)

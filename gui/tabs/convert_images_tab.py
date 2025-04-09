@@ -201,7 +201,9 @@ class ImagesTab(QWidget):
 
         # Validación: se comprueba que la carpeta contenga imágenes en formato .png
         images = sorted(os.listdir(self.image_folder))
-        total_images = len([img for img in images if img.lower().endswith('.png')])
+        # Filtra los archivos que terminan en .png, .jpg o .jpeg (en minúsculas)
+        valid_extensions = ('.png', '.jpg', '.jpeg')
+        total_images = len([img for img in images if img.lower().endswith(valid_extensions)])
         if total_images == 0:
             error_widget = ConversionTaskWidget("Error: Patrón inválido")
             error_widget.update_status("No se detectó un patrón correcto (se requiere al menos dos dígitos).")
