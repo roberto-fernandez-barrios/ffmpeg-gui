@@ -69,6 +69,11 @@ class ImagesTab(QWidget):
         self.btn_select_audio.clicked.connect(self.select_audio_file)
         config_layout.addWidget(self.btn_select_audio)
 
+        # Limpiar audio
+        self.btn_clear_audio = QPushButton("Limpiar audio")
+        self.btn_clear_audio.clicked.connect(self.clear_audio)
+        config_layout.addWidget(self.btn_clear_audio)
+
         # Selección de prioridad de audio
         self.prioritize_audio_checkbox = QCheckBox("Priorizar audio")
         self.prioritize_audio_checkbox.setToolTip("Si se marca, el video se extenderá (con fondo negro) hasta finalizar el audio; de lo contrario, se recorta el audio a la duración del video.")
@@ -282,3 +287,8 @@ class ImagesTab(QWidget):
         worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)
+
+    def clear_audio(self):
+        """Quita la ruta y el label de audio."""
+        self.audio_path = None
+        self.audio_label.setText("Archivo de audio (opcional):")
