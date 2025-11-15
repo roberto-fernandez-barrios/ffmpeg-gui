@@ -69,6 +69,10 @@ class FFmpegWorker(QThread):
 
         # Lee la salida de stderr línea por línea para capturar el progreso
         while True:
+            if self.cancelled and self.proc:
+                # si ya se ha pedido cancelar, salimos del bucle
+                break
+
             line = self.proc.stderr.readline()
             if not line:
                 break
@@ -76,11 +80,12 @@ class FFmpegWorker(QThread):
             if self.enable_logs:
                 log_file.write(line)
 
-            # Busca en la salida la información del frame actual (por ejemplo: "frame=   42")
             match = re.search(r"frame=\s*(\d+)", line)
-            if match:
+            if match and self.total_frames and self.total_frames > 0:
                 current_frame = int(match.group(1))
                 progress = int(current_frame / self.total_frames * 100)
+                if progress > 100:
+                    progress = 100
                 self.progressChanged.emit(progress)
 
         # Espera a que el proceso FFmpeg finalice y obtiene el código de retorno

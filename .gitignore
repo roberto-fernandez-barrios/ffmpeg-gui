@@ -2,6 +2,7 @@
 static/audio/
 static/images/
 static/images - copia/
+static/videos/
 
 # Ignorar la carpeta de documentos
 documents/

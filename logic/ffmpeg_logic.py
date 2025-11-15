@@ -29,32 +29,26 @@ def get_unique_filename(file_path):
     return new_file_path
 
 def detect_image_prefix(folder_path):
-    """
-    Detecta un prefijo común en los nombres de archivos de imagen (por ejemplo, 'algo_0001.png').
-    Itera sobre los archivos en la carpeta y retorna (prefix, width, True) para el primer archivo 
-    que coincida con el patrón (prefijo seguido de al menos 2 dígitos), o (None, 0, False) si ninguno coincide.
-    """
     import os, re
-    # Filtra archivos indeseados, por ejemplo, Thumbs.db
     files = sorted([f for f in os.listdir(folder_path) if f.lower() != "thumbs.db"])
     
     if not files:
         print("[DEBUG] No se encontraron archivos en la carpeta.")
-        return None, 0, False
+        return None, 0, False, None   # ← 4 valores
 
-    # Itera sobre la lista de archivos buscando el primer que coincida con el patrón
     for f in files:
         match = re.match(r"(.+_)(\d{2,})", f)
         if match:
             prefix = match.group(1)
-            start_number = int(match.group(2))  # Número inicial, por ejemplo 1210
+            start_number = int(match.group(2))  # p.ej. 1210
             width = len(match.group(2))
             print("[DEBUG] Prefijo detectado en", f, ":", prefix, "con ancho:", width, "y start_number:", start_number)
             return prefix, width, True, start_number
         else:
             print("[DEBUG] No se encontró coincidencia en el archivo:", f)
-            
+
     return None, 0, False, None
+
 
 
 def get_audio_duration(audio_path):
@@ -180,10 +174,13 @@ def convert_images_to_video_command(folder_path, fps, audio_path=None, user_form
 
     # Construcción de filtros de video
     vf_filters = []
-    # Agrega filtros de fundido si la duración lo permite
     if (fade_in_duration > 0 or fade_out_duration > 0) and video_duration > (fade_in_duration + fade_out_duration):
-        fade_filter = f"fade=t=in:st=0:d={fade_in_duration},fade=t=out:st={video_duration - fade_out_duration}:d={fade_out_duration}"
+        fade_filter = (
+            f"fade=t=in:st=0:d={fade_in_duration},"
+            f"fade=t=out:st={video_duration - fade_out_duration}:d={fade_out_duration}"
+        )
         vf_filters.append(fade_filter)
+
     if audio_path and prioritize_audio:
         # Priorizar audio: extender el video para que tenga la duración del audio.
         audio_duration = get_audio_duration(audio_path)
@@ -237,72 +234,113 @@ def add_audio_to_video_command(video_path, audio_path, output_format="mp4"):
     ]
     return command, output_file
 
-def cut_video_command(video_path, start_time, duration=None, end_time=None, output_format="mp4", cut_mode="time"):
+def cut_video_command(video_path, start_time, duration=None, end_time=None,
+                      output_format="mp4", cut_mode="time"):
     """
-    Construye un comando FFmpeg para cortar un segmento de un video.
-
-    Permite cortar por tiempo (segundos) o por cantidad de frames.
-
-    Parámetros:
-        video_path: Ruta al video de entrada.
-        start_time: Tiempo de inicio para el corte (segundos o hh:mm:ss).
-        duration: 
-            - En modo "time": duración del segmento a cortar (segundos).
-            - En modo "frames": número de frames a incluir en la salida.
-            Es opcional.
-        end_time: Tiempo final del corte (segundos o hh:mm:ss, opcional; solo válido en modo "time").
-        output_format: Formato de salida del video cortado.
-        cut_mode: Modo de corte, "time" (por tiempo) o "frames" (por número de frames). Por defecto es "time".
-
-    Retorna:
-        (command, output_file) con el comando FFmpeg y la ruta del video cortado.
-
-    Notas:
-        - En modo "time", si se especifica end_time, se calcula la duración como (end_time - start_time).
-        - En modo "frames", end_time se ignora y se utiliza el parámetro duration como la cantidad de frames.
+    Corta un vídeo con calidad máxima:
+    - Vídeo: H.264 lossless (sin pérdida adicional).
+    - Audio: copia directa del original (sin recodificar).
+    - Corte preciso (sin glitches de GOP) usando -ss después de -i.
     """
     import os
-    # Genera la ruta de salida
     base = os.path.splitext(video_path)[0]
     output_file = f"{base}_cut.{output_format}"
     output_file = get_unique_filename(output_file)
 
-    # Inicia el comando con el parámetro -ss para indicar el tiempo de inicio
-    command = ["ffmpeg", "-y", "-ss", str(start_time), "-i", video_path]
+    # Corte preciso: -ss después de -i (más lento, pero sin artefactos)
+    command = ["ffmpeg", "-y", "-i", video_path]
 
     if cut_mode == "time":
-        if end_time:
-            # Convierte start_time y end_time a segundos para calcular la duración
-            start_seconds = parse_time_to_seconds(start_time)
-            end_seconds = parse_time_to_seconds(end_time)
-            real_duration = max(0, end_seconds - start_seconds)
-            command.extend(["-t", str(real_duration)])
-        elif duration:
-            command.extend(["-t", str(duration)])
-    elif cut_mode == "frames":
-        if duration:
-            # En modo "frames", interpretamos duration como el número de frames
-            command.extend(["-frames:v", str(duration)])
-        # Si no se proporciona duration en modo "frames", se podría decidir no agregar el parámetro.
-    else:
-        # Si se pasa un modo desconocido, se usa el modo "time" por defecto
-        if duration:
-            command.extend(["-t", str(duration)])
+        # start_time puede ser "hh:mm:ss", "ss" o "ss.sss"
+        start_seconds = parse_time_to_seconds(start_time)
 
-    # Se utiliza -c copy para evitar reencodeo y conservar la calidad
-    command.extend(["-c", "copy", output_file])
+        if end_time:
+            end_seconds = parse_time_to_seconds(end_time)
+            real_duration = max(0.0, end_seconds - start_seconds)
+            command.extend(["-ss", str(start_seconds), "-t", str(real_duration)])
+        elif duration:
+            dur_seconds = parse_time_to_seconds(duration)
+            command.extend(["-ss", str(start_seconds), "-t", str(dur_seconds)])
+        else:
+            command.extend(["-ss", str(start_seconds)])
+
+    elif cut_mode == "frames":
+        # Interpreta start_time como desplazamiento y duration como nº de frames
+        start_seconds = parse_time_to_seconds(start_time)
+        command.extend(["-ss", str(start_seconds)])
+        if duration:
+            command.extend(["-frames:v", str(duration)])
+
+    else:
+        # Fallback: tratamos como corte por tiempo
+        start_seconds = parse_time_to_seconds(start_time)
+        if duration:
+            dur_seconds = parse_time_to_seconds(duration)
+            command.extend(["-ss", str(start_seconds), "-t", str(dur_seconds)])
+        else:
+            command.extend(["-ss", str(start_seconds)])
+
+    # Vídeo: H.264 lossless (sin pérdida) → archivos MUY grandes
+    video_codec_args = [
+        "-c:v", "libx264",
+        "-preset", "veryslow",   # máxima compresión posible (más tiempo)
+        "-crf", "0",             # 0 = lossless en x264
+        "-pix_fmt", "yuv420p",
+    ]
+
+    # Audio: copia directa (sin recodificar)
+    audio_codec_args = [
+        "-c:a", "copy",
+    ]
+
+    command.extend(
+        video_codec_args
+        + audio_codec_args
+        + [
+            "-movflags", "+faststart",
+            "-map_metadata", "0",  # conservar metadata del original
+            "-map", "0",           # copiar todos los streams (vídeo, audio, subs si hay)
+            output_file,
+        ]
+    )
+
     print(" ".join(command))
     return command, output_file
 
 
 def parse_time_to_seconds(time_str):
     """
-    Convierte una cadena de tiempo en formato 'hh:mm:ss' o segundos en un entero de segundos.
+    Convierte una cadena de tiempo en segundos.
+    Acepta:
+      - "ss"
+      - "ss.sss"
+      - "mm:ss"
+      - "hh:mm:ss"
+      (la última parte puede tener decimales).
     """
-    if ":" in time_str:
-        parts = list(map(int, time_str.split(":")))
-        return sum(x * 60 ** i for i, x in enumerate(reversed(parts)))
-    return int(time_str)
+    # Por si viene ya como número
+    if isinstance(time_str, (int, float)):
+        return float(time_str)
+
+    s = str(time_str).strip()
+
+    # Formato con ":" → h:m:s
+    if ":" in s:
+        parts = s.split(":")
+        parts = [p.strip() for p in parts]
+
+        # Recorremos desde el final: segundos, minutos, horas...
+        seconds_total = 0.0
+        power = 0
+        for p in reversed(parts):
+            # la parte más a la derecha puede tener decimales
+            value = float(p)
+            seconds_total += value * (60 ** power)
+            power += 1
+        return seconds_total
+
+    # Formato simple: "ss" o "ss.sss"
+    return float(s)
 
 
 def limit_kps_command(input_file, video_bitrate="57M", maxrate="60M", output_format="mp4"):
