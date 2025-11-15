@@ -1,117 +1,120 @@
-# FFmpeg GUI
+# FFmpeg Backend
 
-Una **Interfaz Gráfica para FFmpeg** desarrollada en Python utilizando PyQt6.  
-Esta aplicación permite:
-- **Convertir secuencias de imágenes a video**, configurando parámetros como FPS, CRF, fundidos (fade in/out), audio opcional y formato de salida.
-- **Agregar audio a un video** (por ejemplo, a un video sin sonido).
-- **Cortar videos** especificando tiempos de inicio y duración o tiempo final.
-
-La aplicación ejecuta los procesos de FFmpeg en hilos separados para mantener la interfaz responsiva y, si se intenta generar un video con un nombre de archivo ya existente, se genera un nombre único automáticamente para evitar conflictos.
+![License](https://img.shields.io/badge/License-MIT-blue.svg)
+![Python](https://img.shields.io/badge/Python-3.11-green.svg)
+![PyQt6](https://img.shields.io/badge/PyQt6-6.x-blue.svg)
 
 ---
 
-## Características
+## 🎬 Descripción
 
-- **Interfaz intuitiva:** Organizada en pestañas para cada funcionalidad (Imágenes, Video y Cortar Video).
-- **Procesamiento en segundo plano:** Utiliza hilos (QThread) para ejecutar FFmpeg sin bloquear la UI.
-- **Gestión automática de archivos de salida:** Se renombra el archivo de salida si ya existe (se añade un timestamp).
-- **Modularidad:** El código está organizado en módulos para facilitar el mantenimiento y la escalabilidad.
+**FFmpeg Backend** es una aplicación de escritorio multiplataforma (Windows) desarrollada con **PyQt6** que ofrece una interfaz gráfica amigable para ejecutar tareas comunes de FFmpeg sin necesidad de línea de comandos. Permite:
 
----
-
-## Estructura del Proyecto
-
-```
-project/
-│
-├── main.py                # Punto de entrada de la aplicación.
-│
-├── gui/
-│   ├── __init__.py
-│   ├── main_window.py     # Ventana principal que organiza las pestañas.
-│   ├── widgets.py         # Widgets personalizados (ej. ClickableLabel).
-│   └── tabs/
-│       ├── __init__.py
-│       ├── images_tab.py  # Pestaña para convertir imágenes a video.
-│       ├── video_tab.py   # Pestaña para agregar audio a un video.
-│       └── cut_video_tab.py  # Pestaña para cortar un video.
-│
-└── logic/
-    ├── __init__.py
-    ├── ffmpeg_logic.py    # Funciones para construir comandos FFmpeg.
-    └── ffmpeg_worker.py   # Worker que ejecuta FFmpeg en un hilo separado.
-```
+* 🚀 **Convertir secuencias de imágenes** (PNG) a video con ajustes de FPS, CRF, fundidos (fade-in/out) y pista de audio opcional.
+* 🎵 **Editar audio** en videos: añadir, quitar o sustituir pistas de audio.
+* ✂️ **Cortar videos** por tiempo o número de frames.
+* 🔒 **Limitar bitrate** (kps) de un video.
+* 📏 **Escalar videos** a dimensiones personalizadas con presets de codificación y CRF.
+* 🖼️ **Recortar (crop)** videos especificando píxeles a eliminar por cada lado.
+* 🖱️ **Drag & Drop** de archivos/carpeta para una experiencia más ágil.
+* 🛑 **Cola de tareas** con barras de progreso, cancelación segura y limpieza de salidas incompletas.
 
 ---
 
-## Requisitos
-
-- **Python 3.x**
-- **PyQt6** (se puede instalar vía pip)
-- **FFmpeg** instalado y disponible en el PATH del sistema  
-  (Descarga FFmpeg desde [ffmpeg.org](https://ffmpeg.org/) y sigue las instrucciones de instalación para tu sistema operativo).
+## 📸 Captura de Pantalla
+![Interfaz Principal](https://github.com/user-attachments/assets/798409d4-9c40-4bf0-be3b-e0c519d5d141)
 
 ---
 
-## Instalación
+## ⚙️ Instalación
 
-1. **Clonar el repositorio:**
+1. Clona el repositorio:
 
    ```bash
-   git clone https://github.com/tu_usuario/ffmpeg-gui.git
+   git clone https://github.com/usuario/ffmpeg-gui.git
    cd ffmpeg-gui
    ```
 
-2. **Instalar las dependencias:**
+2. Crea y activa un entorno virtual:
 
    ```bash
-   pip install PyQt6
+   python -m venv venv
+   venv\Scripts\activate  # Windows
+   source venv/bin/activate  # macOS/Linux
    ```
 
-3. **Verificar FFmpeg:**  
-   Asegúrate de que FFmpeg esté instalado y accesible desde la línea de comandos.
+3. Instala dependencias:
 
----
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-## Uso
-
-1. **Ejecutar la aplicación:**
+4. Ejecuta la aplicación:
 
    ```bash
    python main.py
    ```
 
-2. **Interfaz de usuario:**  
-   - **Pestaña Imágenes:** Selecciona una carpeta con imágenes, define los parámetros (FPS, CRF, fundidos, audio, formato) y convierte la secuencia en un video.
-   - **Pestaña Video:** Selecciona un video sin audio y un archivo de audio para combinarlos.
-   - **Pestaña Cortar Video:** Selecciona un video, define los parámetros de corte (tiempo de inicio, duración o tiempo final) y corta el video.
+---
 
-3. **Salida:**  
-   Los archivos de salida se generarán en la misma carpeta de las imágenes o junto al video de entrada. Si ya existe un archivo con el mismo nombre, se le añadirá un timestamp para evitar sobrescrituras.
+## 📦 Empaquetado (Windows)
+
+Para generar un `.exe` ejecutable:
+
+```bash
+pyinstaller --onefile --windowed \
+    --name "FFmpeg-GUI-<versión>" \
+    --icon="static/icons/icon.ico" \
+    --add-data "static/icons/icon.ico;static/icons/" \
+    main.py
+```
+
+El ejecutable se ubicará en `dist/FFmpeg-GUI-<versión>.exe`. Puedes limpiar la carpeta `build/` y el archivo `.spec` si sólo deseas distribuir el EXE.
 
 ---
 
-## Personalización
+## 🚀 Uso
 
-- **Parámetros FFmpeg:**  
-  Puedes modificar las funciones en `logic/ffmpeg_logic.py` para ajustar los parámetros de FFmpeg según tus necesidades.
+1. **Convertir imágenes**: arrastra o selecciona una carpeta con secuencia `PNG`. Ajusta **FPS**, **CRF**, **fade**, formato y pista de audio (opcional). Pulsa **Convertir**.
+2. **Editar audio**: selecciona un video; elige operación (Añadir, Quitar, Sustituir). Si aplica, arrastra o selecciona la pista de audio. Pulsa **Procesar**.
+3. **Cortar video**: selecciona un video; indica inicio y duración (o frames+FPS). Pulsa **Cortar Video**.
+4. **Limitar bitrate**: selecciona un video; ajusta **bitrate** y **maxrate**. Pulsa **Limitar Kps**.
+5. **Escalar video**: selecciona un video; define **ancho/alto**, **preset** y **CRF**. Pulsa **Reescalar Video**.
+6. **Recortar video**: selecciona un video; define píxeles a recortar por cada lado. Pulsa **Recortar Video**.
 
-- **Interfaz:**  
-  La UI se encuentra modularizada en `gui/`, permitiendo personalizar o extender la funcionalidad fácilmente.
-
----
-
-## Licencia
-
-Este proyecto se distribuye bajo la licencia **Non Comercial License**. Consulta el archivo [LICENSE](LICENSE) para más detalles.
+Todas las operaciones se muestran en una cola de tareas con progreso y opción de cancelar.
 
 ---
 
-## Créditos
+## 📂 Estructura del Proyecto
 
-- **Desarrollador:** Roberto Fernández Barrios
-- Inspirado en diversas herramientas y proyectos que integran FFmpeg con interfaces gráficas.
+```
+ffmpeg-gui/
+├─ gui/
+│  ├─ tabs/           # Pestañas: conversion, audio_editing, cut, limit, scale, crop
+│  └─ task_widget.py  # Widget para mostrar tareas
+├─ logic/
+│  ├─ ffmpeg_logic.py # Construcción de comandos FFmpeg
+│  └─ ffmpeg_worker.py# QThread para ejecutar FFmpeg y notificar progreso
+├─ static/
+│  └─ icons/          # Iconos de la aplicación
+├─ main.py            # Punto de entrada de la aplicación
+├─ requirements.txt
+└─ README.md
+```
 
 ---
 
-¡Gracias por utilizar FFmpeg GUI!
+## 🤝 Contribuir
+
+1. Haz **fork** del repositorio.
+2. Crea una rama (`git checkout -b feature/nueva-funcion`).
+3. Realiza tus cambios y haz **commit** (`git commit -m 'Añade nueva función'`).
+4. Empuja tu rama (`git push origin feature/nueva-funcion`).
+5. Abre un **Pull Request**.
+
+---
+
+## 📝 Licencia
+
+Este proyecto está licenciado bajo la [MIT License](LICENSE).
