@@ -21,15 +21,15 @@ executables = [
     Executable(
         script="main.py",
         base=base,
-        target_name="FFmpeg-GUI-3.0.exe",  # Usamos target_name en lugar de targetName
+        target_name="FFmpeg-GUI-3.1.1.exe",  # Usamos target_name en lugar de targetName
         icon=r"C:\Users\RF\ffmpeg-gui\static\icons\icon.ico"
     )
 ]
 
 # Configuración de cx_Freeze
 setup(
-    name="FFmpeg-GUI-3.0",
-    version="3.0",
+    name="FFmpeg-GUI-3.1.1",
+    version="3.1.1",
     description="Aplicación GUI para FFmpeg",
     options={"build_exe": build_exe_options},
     executables=executables
