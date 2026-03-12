@@ -22,7 +22,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='FFmpeg-GUI-3.1',
+    name='FFmpeg-GUI-3.0',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

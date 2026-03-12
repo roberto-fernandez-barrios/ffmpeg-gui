@@ -6,7 +6,6 @@ Módulo que contiene funciones para construir comandos FFmpeg para diversas oper
 - Cortar un video.
 - Recortar un video.
 - Unir varios videos.
-- Emparejar automáticamente videos por resolución entre dos carpetas.
 """
 
 import os
@@ -14,10 +13,6 @@ import re
 import time
 import tempfile
 import subprocess
-
-
-VIDEO_EXTENSIONS = {".mp4", ".avi", ".mkv", ".mov"}
-SIN_LOGO_MARKERS = ("sin logo", "sin_logo", "sin-logo")
 
 
 def get_unique_filename(file_path):
@@ -104,177 +99,6 @@ def get_video_duration(video_path):
     except Exception as e:
         print("Error obteniendo duración del vídeo:", e)
         return 0.0
-
-
-def get_video_resolution(video_path):
-    """
-    Devuelve la resolución del vídeo como string 'ANCHOxALTO', por ejemplo '1080x1920'.
-    Si falla, devuelve None.
-    """
-    cmd = [
-        "ffprobe",
-        "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=width,height",
-        "-of", "csv=s=x:p=0",
-        video_path
-    ]
-    try:
-        output = subprocess.check_output(cmd, universal_newlines=True).strip()
-        if not output or "x" not in output:
-            return None
-        return output
-    except Exception as e:
-        print("Error obteniendo resolución del vídeo:", e)
-        return None
-
-
-def is_video_file(file_path):
-    """
-    Devuelve True si la ruta parece corresponder a un vídeo soportado.
-    """
-    if not os.path.isfile(file_path):
-        return False
-    return os.path.splitext(file_path)[1].lower() in VIDEO_EXTENSIONS
-
-
-def get_video_variant(video_path):
-    """
-    Devuelve la variante lógica del vídeo para emparejado:
-    - 'sin_logo' si el nombre contiene indicadores como 'sin logo'
-    - 'default' en cualquier otro caso
-    """
-    name = os.path.basename(video_path).lower()
-    if any(marker in name for marker in SIN_LOGO_MARKERS):
-        return "sin_logo"
-    return "default"
-
-
-def sanitize_filename_part(text):
-    """
-    Limpia texto para usarlo como parte segura de un nombre de archivo.
-    """
-    cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "_", str(text))
-    return cleaned.strip("_")
-
-
-def build_auto_merge_output_name(pair_info):
-    """
-    Construye un nombre de salida para una pareja emparejada automáticamente.
-    """
-    resolution = sanitize_filename_part(pair_info.get("resolution", "unknown"))
-    variant = pair_info.get("variant", "default")
-    pair_index = int(pair_info.get("pair_index", 1))
-
-    name = f"merge_{resolution}"
-    if variant == "sin_logo":
-        name += "_sin_logo"
-    if pair_index > 1:
-        name += f"_{pair_index}"
-
-    return name
-
-
-def scan_video_folder_for_matching(folder_path):
-    """
-    Escanea una carpeta y agrupa vídeos por:
-    (resolución, variante)
-
-    Retorna:
-        (mapping, ignored)
-    donde:
-        mapping[(resolution, variant)] = [ruta1, ruta2, ...]
-        ignored = vídeos que no se pudieron interpretar
-    """
-    mapping = {}
-    ignored = []
-
-    if not folder_path or not os.path.isdir(folder_path):
-        return mapping, ignored
-
-    for entry in sorted(os.listdir(folder_path)):
-        full_path = os.path.join(folder_path, entry)
-
-        if not is_video_file(full_path):
-            continue
-
-        resolution = get_video_resolution(full_path)
-        if not resolution:
-            ignored.append(full_path)
-            continue
-
-        variant = get_video_variant(full_path)
-        key = (resolution, variant)
-        mapping.setdefault(key, []).append(full_path)
-
-    return mapping, ignored
-
-
-def pair_videos_by_resolution(folder_1, folder_2):
-    """
-    Empareja automáticamente vídeos entre dos carpetas por:
-    - resolución
-    - variante ('default' o 'sin_logo')
-
-    Si en una carpeta hay más vídeos que en la otra para una misma clave,
-    empareja por orden alfabético y deja el resto como ignorados.
-
-    Retorna:
-        pairs, ignored_1, ignored_2, warnings
-
-    Cada elemento de pairs es un dict:
-    {
-        "resolution": "1080x1080",
-        "variant": "default" | "sin_logo",
-        "video_1": "...",
-        "video_2": "...",
-        "pair_index": 1
-    }
-    """
-    map_1, ignored_1 = scan_video_folder_for_matching(folder_1)
-    map_2, ignored_2 = scan_video_folder_for_matching(folder_2)
-
-    all_keys = sorted(set(map_1.keys()) | set(map_2.keys()))
-
-    pairs = []
-    warnings = []
-
-    for key in all_keys:
-        resolution, variant = key
-        list_1 = sorted(map_1.get(key, []))
-        list_2 = sorted(map_2.get(key, []))
-
-        if list_1 and list_2:
-            pair_count = min(len(list_1), len(list_2))
-
-            for idx in range(pair_count):
-                pairs.append({
-                    "resolution": resolution,
-                    "variant": variant,
-                    "video_1": list_1[idx],
-                    "video_2": list_2[idx],
-                    "pair_index": idx + 1
-                })
-
-            if len(list_1) > pair_count:
-                ignored_1.extend(list_1[pair_count:])
-                warnings.append(
-                    f"Sobran {len(list_1) - pair_count} vídeo(s) en carpeta 1 para {resolution} / {variant}"
-                )
-
-            if len(list_2) > pair_count:
-                ignored_2.extend(list_2[pair_count:])
-                warnings.append(
-                    f"Sobran {len(list_2) - pair_count} vídeo(s) en carpeta 2 para {resolution} / {variant}"
-                )
-
-        else:
-            if list_1:
-                ignored_1.extend(list_1)
-            if list_2:
-                ignored_2.extend(list_2)
-
-    return pairs, ignored_1, ignored_2, warnings
 
 
 def convert_images_to_video_command(folder_path, fps, audio_path=None, user_format="mp4 (H.264 8-bit)",
@@ -412,6 +236,10 @@ def cut_video_command(video_path, start_time, duration=None, end_time=None,
     """
     Corta un vídeo con calidad máxima y permite añadir fundido a negro
     al inicio y/o al final del fragmento resultante.
+
+    - Vídeo: H.264 lossless.
+    - Audio: copia directa del original.
+    - Corte preciso usando -ss después de -i.
     """
     base = os.path.splitext(video_path)[0]
     output_file = f"{base}_cut.{output_format}"
@@ -655,22 +483,9 @@ def build_concat_file(video_paths):
     return concat_file
 
 
-def merge_videos_command(video_paths, mode="fast", output_name=None, preset="slow",
-                         crf="19", output_format="mp4", output_dir=None):
+def merge_videos_command(video_paths, mode="fast", output_name=None, preset="slow", crf="19", output_format="mp4"):
     """
     Construye un comando FFmpeg para unir múltiples vídeos.
-
-    Parámetros:
-        video_paths: lista ordenada de vídeos a unir.
-        mode: 'fast' o 'compatible'
-        output_name: nombre de salida sin extensión
-        preset: preset de codificación
-        crf: calidad de codificación
-        output_format: formato de salida
-        output_dir: directorio de salida opcional. Si es None, usa la carpeta del primer vídeo.
-
-    Retorna:
-        (command, output_file, concat_file, error_message)
     """
     is_valid, error_message = validate_merge_inputs(video_paths)
     if not is_valid:
@@ -680,12 +495,7 @@ def merge_videos_command(video_paths, mode="fast", output_name=None, preset="slo
         return [], "", "", f"Modo de unión no válido: {mode}"
 
     first_video = os.path.abspath(video_paths[0])
-    base_dir = output_dir if output_dir else os.path.dirname(first_video)
-
-    try:
-        os.makedirs(base_dir, exist_ok=True)
-    except Exception as e:
-        return [], "", "", f"No se pudo crear el directorio de salida: {e}"
+    base_dir = os.path.dirname(first_video)
 
     if output_name and str(output_name).strip():
         filename = f"{str(output_name).strip()}.{output_format}"
