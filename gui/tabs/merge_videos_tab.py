@@ -2,13 +2,18 @@
 """
 MergeVideosTab: Pestaña para unir varios videos en uno solo.
 
-Pensada para campañas con muchos clips (20-30 o más), permitiendo:
+Incluye dos flujos:
+1) Unión manual de una lista de vídeos.
+2) Emparejado automático entre dos carpetas por resolución y variante 'sin logo'.
+
+Pensada para campañas con muchos clips, permitiendo:
 - Seleccionar múltiples vídeos.
 - Reordenarlos.
 - Arrastrarlos y soltarlos.
 - Elegir entre:
-    1) Unión rápida sin recodificar (muy rápida, requiere compatibilidad entre clips).
-    2) Unión compatible recodificando (más lenta, más robusta).
+    1) Unión rápida sin recodificar.
+    2) Unión compatible recodificando.
+- Seleccionar dos carpetas y fusionar automáticamente sólo los vídeos emparejables.
 """
 
 import os
@@ -22,22 +27,33 @@ from PyQt6.QtGui import QDesktopServices, QFontMetrics
 
 from logic.ffmpeg_worker import FFmpegWorker
 from gui.task_widget import ConversionTaskWidget
-from logic.ffmpeg_logic import merge_videos_command
+from logic.ffmpeg_logic import (
+    merge_videos_command,
+    pair_videos_by_resolution,
+    build_auto_merge_output_name
+)
 
 
 class MergeVideosTab(QWidget):
     def __init__(self):
         super().__init__()
         self.setAcceptDrops(True)
-        self.input_videos = []   # Lista de rutas absolutas
-        self.active_workers = [] # Referencias para evitar GC prematuro
+
+        self.input_videos = []
+        self.active_workers = []
+
+        self.folder_1_path = None
+        self.folder_2_path = None
+
         self.init_ui()
 
     def init_ui(self):
         layout = QVBoxLayout()
 
-        # --- Grupo: Selección de vídeos ---
-        group_videos = QGroupBox("Seleccionar Videos")
+        # =========================================================
+        # Unión manual
+        # =========================================================
+        group_videos = QGroupBox("Unión Manual de Videos")
         videos_layout = QVBoxLayout()
 
         self.videos_label = QLabel("Videos seleccionados: 0")
@@ -75,7 +91,48 @@ class MergeVideosTab(QWidget):
         group_videos.setLayout(videos_layout)
         layout.addWidget(group_videos)
 
-        # --- Grupo: Configuración de unión ---
+        # =========================================================
+        # Emparejado automático por carpetas
+        # =========================================================
+        group_auto = QGroupBox("Emparejado Automático por Carpetas")
+        auto_layout = QVBoxLayout()
+
+        self.folder_1_label = QLabel("Carpeta 1 (Video Campaña): no seleccionada")
+        self.folder_1_label.setToolTip("")
+        auto_layout.addWidget(self.folder_1_label)
+
+        self.btn_select_folder_1 = QPushButton("Seleccionar Carpeta 1")
+        self.btn_select_folder_1.clicked.connect(self.select_folder_1)
+        auto_layout.addWidget(self.btn_select_folder_1)
+
+        self.folder_2_label = QLabel("Carpeta 2 (Lookbook Campaña): no seleccionada")
+        self.folder_2_label.setToolTip("")
+        auto_layout.addWidget(self.folder_2_label)
+
+        self.btn_select_folder_2 = QPushButton("Seleccionar Carpeta 2")
+        self.btn_select_folder_2.clicked.connect(self.select_folder_2)
+        auto_layout.addWidget(self.btn_select_folder_2)
+
+        self.auto_hint_label = QLabel(
+            "La app empareja por resolución y distingue automáticamente la variante 'sin logo' si aparece en el nombre del archivo."
+        )
+        self.auto_hint_label.setWordWrap(True)
+        auto_layout.addWidget(self.auto_hint_label)
+
+        self.auto_summary_label = QLabel("")
+        self.auto_summary_label.setWordWrap(True)
+        auto_layout.addWidget(self.auto_summary_label)
+
+        self.btn_merge_folders = QPushButton("Fusionar Carpetas por Resolución")
+        self.btn_merge_folders.clicked.connect(self.merge_folders_by_resolution)
+        auto_layout.addWidget(self.btn_merge_folders)
+
+        group_auto.setLayout(auto_layout)
+        layout.addWidget(group_auto)
+
+        # =========================================================
+        # Configuración general
+        # =========================================================
         group_config = QGroupBox("Configuración de Unión")
         config_layout = QVBoxLayout()
 
@@ -90,7 +147,7 @@ class MergeVideosTab(QWidget):
         self.mode_combo.currentTextChanged.connect(self.update_mode_visibility)
         config_layout.addWidget(self.mode_combo)
 
-        self.output_name_label = QLabel("Nombre de salida (sin extensión, opcional):")
+        self.output_name_label = QLabel("Nombre de salida manual (sin extensión, opcional):")
         config_layout.addWidget(self.output_name_label)
 
         self.output_name_input = QLineEdit("")
@@ -116,12 +173,20 @@ class MergeVideosTab(QWidget):
         group_config.setLayout(config_layout)
         layout.addWidget(group_config)
 
-        # --- Botón de procesado ---
-        self.btn_merge_videos = QPushButton("Unir Videos")
-        self.btn_merge_videos.clicked.connect(self.merge_videos)
-        layout.addWidget(self.btn_merge_videos)
+        # =========================================================
+        # Botones de procesado
+        # =========================================================
+        row_process = QHBoxLayout()
 
-        # --- Grupo: Tareas ---
+        self.btn_merge_videos = QPushButton("Unir Lista Manual")
+        self.btn_merge_videos.clicked.connect(self.merge_videos)
+        row_process.addWidget(self.btn_merge_videos)
+
+        layout.addLayout(row_process)
+
+        # =========================================================
+        # Tareas
+        # =========================================================
         group_tasks = QGroupBox("Tareas de Unión")
         self.tasks_layout = QVBoxLayout()
         self.tasks_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -129,7 +194,7 @@ class MergeVideosTab(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setMinimumHeight(100)
+        scroll_area.setMinimumHeight(120)
         scroll_content = QWidget()
         scroll_content.setLayout(self.tasks_layout)
         scroll_area.setWidget(scroll_content)
@@ -141,7 +206,7 @@ class MergeVideosTab(QWidget):
         self.update_mode_visibility(self.mode_combo.currentText())
 
     # =========================================================
-    # Selección y gestión de vídeos
+    # Unión manual - selección y gestión de vídeos
     # =========================================================
     def select_video_files(self):
         """Abre un diálogo para seleccionar múltiples vídeos."""
@@ -155,7 +220,7 @@ class MergeVideosTab(QWidget):
             self.add_videos(file_paths)
 
     def add_videos(self, file_paths):
-        """Añade vídeos a la lista, evitando duplicados exactos."""
+        """Añade vídeos a la lista manual, evitando duplicados exactos."""
         valid_exts = {".mp4", ".avi", ".mkv", ".mov"}
         existing = set(os.path.normcase(os.path.abspath(p)) for p in self.input_videos)
 
@@ -179,7 +244,7 @@ class MergeVideosTab(QWidget):
         self.update_videos_label()
 
     def remove_selected_videos(self):
-        """Elimina los vídeos seleccionados de la lista."""
+        """Elimina los vídeos seleccionados de la lista manual."""
         selected_items = self.video_list_widget.selectedItems()
         if not selected_items:
             return
@@ -197,7 +262,7 @@ class MergeVideosTab(QWidget):
         self.update_videos_label()
 
     def clear_videos(self):
-        """Limpia completamente la lista de vídeos."""
+        """Limpia completamente la lista manual de vídeos."""
         self.input_videos = []
         self.video_list_widget.clear()
         self.update_videos_label()
@@ -243,16 +308,38 @@ class MergeVideosTab(QWidget):
         self.update_videos_label()
 
     def update_videos_label(self):
-        """Actualiza el contador de vídeos seleccionados."""
+        """Actualiza el contador de vídeos manuales seleccionados."""
         self.videos_label.setText(f"Videos seleccionados: {len(self.input_videos)}")
+
+    # =========================================================
+    # Carpetas
+    # =========================================================
+    def select_folder_1(self):
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta 1")
+        if folder:
+            self.folder_1_path = folder
+            self.update_folder_label(self.folder_1_label, "Carpeta 1 (Video Campaña)", folder)
+
+    def select_folder_2(self):
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar Carpeta 2")
+        if folder:
+            self.folder_2_path = folder
+            self.update_folder_label(self.folder_2_label, "Carpeta 2 (Lookbook Campaña)", folder)
+
+    def update_folder_label(self, label_widget, prefix, folder_path):
+        """
+        Actualiza un label de carpeta mostrando nombre visible y ruta completa en tooltip.
+        """
+        folder_name = os.path.basename(folder_path.rstrip("/\\"))
+        label_widget.setText(f"{prefix}: <span style='color:blue;'>{folder_name}</span>")
+        label_widget.setToolTip(folder_path)
 
     # =========================================================
     # Drag & drop
     # =========================================================
     def dragEnterEvent(self, event):
         """
-        Se llama cuando se arrastra un objeto sobre el widget.
-        Si contiene archivos, se acepta la acción.
+        Si contiene URLs, se acepta la acción.
         """
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -261,8 +348,7 @@ class MergeVideosTab(QWidget):
 
     def dropEvent(self, event):
         """
-        Se llama cuando se suelta un objeto sobre el widget.
-        Añade a la lista los archivos de vídeo válidos.
+        Añade a la lista manual los archivos de vídeo válidos arrastrados.
         """
         if event.mimeData().hasUrls():
             paths = []
@@ -286,16 +372,23 @@ class MergeVideosTab(QWidget):
         self.crf_label.setVisible(compatible_mode)
         self.crf_input.setVisible(compatible_mode)
 
+    def validate_mode_inputs(self):
+        """
+        Valida inputs comunes del modo.
+        """
+        mode_text = self.mode_combo.currentText()
+        if mode_text == "Compatible (recodificar)":
+            crf = self.crf_input.text().strip()
+            if not crf.isdigit():
+                return False, "El CRF debe ser un número entero."
+        return True, ""
+
     # =========================================================
-    # Procesado
+    # Procesado manual
     # =========================================================
     def merge_videos(self):
         """
-        Inicia el proceso de unión de vídeos:
-        - valida entrada
-        - construye comando
-        - crea tarea visual
-        - lanza worker
+        Inicia el proceso manual de unión de vídeos.
         """
         if len(self.input_videos) < 2:
             error_widget = ConversionTaskWidget("Error: Vídeos insuficientes")
@@ -303,19 +396,17 @@ class MergeVideosTab(QWidget):
             self.tasks_layout.addWidget(error_widget)
             return
 
-        mode_text = self.mode_combo.currentText()
+        is_valid, message = self.validate_mode_inputs()
+        if not is_valid:
+            error_widget = ConversionTaskWidget("Error: Configuración inválida")
+            error_widget.update_status(message)
+            self.tasks_layout.addWidget(error_widget)
+            return
 
-        if mode_text == "Compatible (recodificar)":
-            crf = self.crf_input.text().strip()
-            if not crf.isdigit():
-                error_widget = ConversionTaskWidget("Error: CRF inválido")
-                error_widget.update_status("El CRF debe ser un número entero.")
-                self.tasks_layout.addWidget(error_widget)
-                return
+        mode_text = self.mode_combo.currentText()
+        mode = "fast" if mode_text == "Rápido (sin recodificar)" else "compatible"
 
         try:
-            mode = "fast" if mode_text == "Rápido (sin recodificar)" else "compatible"
-
             command, output_file, concat_file, error_message = merge_videos_command(
                 self.input_videos,
                 mode=mode,
@@ -338,11 +429,105 @@ class MergeVideosTab(QWidget):
             return
 
         task_prefix = "Unión rápida: " if mode_text == "Rápido (sin recodificar)" else "Unión compatible: "
+        self.start_merge_task(command, output_file, concat_file, task_prefix)
+
+    # =========================================================
+    # Procesado automático por carpetas
+    # =========================================================
+    def merge_folders_by_resolution(self):
+        """
+        Empareja automáticamente dos carpetas por resolución y variante,
+        y lanza una fusión por cada pareja encontrada.
+        """
+        if not self.folder_1_path or not os.path.isdir(self.folder_1_path):
+            error_widget = ConversionTaskWidget("Error: Carpeta 1")
+            error_widget.update_status("Selecciona una Carpeta 1 válida.")
+            self.tasks_layout.addWidget(error_widget)
+            return
+
+        if not self.folder_2_path or not os.path.isdir(self.folder_2_path):
+            error_widget = ConversionTaskWidget("Error: Carpeta 2")
+            error_widget.update_status("Selecciona una Carpeta 2 válida.")
+            self.tasks_layout.addWidget(error_widget)
+            return
+
+        is_valid, message = self.validate_mode_inputs()
+        if not is_valid:
+            error_widget = ConversionTaskWidget("Error: Configuración inválida")
+            error_widget.update_status(message)
+            self.tasks_layout.addWidget(error_widget)
+            return
+
+        mode_text = self.mode_combo.currentText()
+        mode = "fast" if mode_text == "Rápido (sin recodificar)" else "compatible"
+
+        try:
+            pairs, ignored_1, ignored_2, warnings = pair_videos_by_resolution(
+                self.folder_1_path,
+                self.folder_2_path
+            )
+        except Exception as e:
+            error_widget = ConversionTaskWidget("Error: Emparejado automático")
+            error_widget.update_status(str(e))
+            self.tasks_layout.addWidget(error_widget)
+            return
+
+        if not pairs:
+            self.auto_summary_label.setText(
+                f"No se encontraron parejas compatibles. Ignorados carpeta 1: {len(ignored_1)} | "
+                f"Ignorados carpeta 2: {len(ignored_2)}"
+            )
+            error_widget = ConversionTaskWidget("Error: Sin coincidencias")
+            error_widget.update_status("No se encontraron vídeos con resolución coincidente entre ambas carpetas.")
+            self.tasks_layout.addWidget(error_widget)
+            return
+
+        output_dir = os.path.join(self.folder_1_path, "merged_by_resolution")
+        os.makedirs(output_dir, exist_ok=True)
+
+        summary_parts = [
+            f"Emparejados: {len(pairs)}",
+            f"Ignorados carpeta 1: {len(ignored_1)}",
+            f"Ignorados carpeta 2: {len(ignored_2)}"
+        ]
+        if warnings:
+            summary_parts.append(f"Advertencias: {len(warnings)}")
+        self.auto_summary_label.setText(" | ".join(summary_parts))
+
+        for pair_info in pairs:
+            output_name = build_auto_merge_output_name(pair_info)
+
+            command, output_file, concat_file, error_message = merge_videos_command(
+                [pair_info["video_1"], pair_info["video_2"]],
+                mode=mode,
+                output_name=output_name,
+                preset=self.preset_combo.currentText(),
+                crf=self.crf_input.text().strip(),
+                output_format="mp4",
+                output_dir=output_dir
+            )
+
+            if not command:
+                error_widget = ConversionTaskWidget(f"Error: {output_name}")
+                error_widget.update_status(error_message or "No se pudo construir el comando FFmpeg.")
+                self.tasks_layout.addWidget(error_widget)
+                continue
+
+            variant_suffix = " sin logo" if pair_info["variant"] == "sin_logo" else ""
+            task_prefix = f"Auto {pair_info['resolution']}{variant_suffix}: "
+            self.start_merge_task(command, output_file, concat_file, task_prefix)
+
+    # =========================================================
+    # Arranque común de tareas
+    # =========================================================
+    def start_merge_task(self, command, output_file, concat_file, task_prefix):
+        """
+        Crea el widget de tarea y lanza un FFmpegWorker.
+        """
         task_name = task_prefix + os.path.basename(output_file)
         task_widget = ConversionTaskWidget(task_name)
         self.tasks_layout.addWidget(task_widget)
 
-        # Progreso aproximado, siguiendo el patrón actual del proyecto
         worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
         self.active_workers.append(worker)
 

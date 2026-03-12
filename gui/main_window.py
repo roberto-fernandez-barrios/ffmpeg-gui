@@ -13,7 +13,7 @@ class FFmpegGUI(QWidget):
     def __init__(self):
         super().__init__()
         self.workers = []  # Lista para almacenar los workers activos
-        self.setWindowTitle("FFmpeg GUI 3.0")
+        self.setWindowTitle("FFmpeg GUI 3.1")
         self.setGeometry(100, 100, 730, 500)  # Ajusta el tamaño de la ventana según lo necesites
         self.init_ui()
 
