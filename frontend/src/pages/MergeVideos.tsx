@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
 import { Panel } from '../components/Panel'
 import { FolderPicker } from '../components/FolderPicker'
 import { TextField, SelectField, SubmitButton } from '../components/fields'
 import { ProgressBar } from '../components/ProgressBar'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { getDroppedPaths, extensionOf } from '../dragDrop'
 
 const MODES: Record<string, 'fast' | 'compatible'> = {
   'Rápido (sin recodificar)': 'fast',
@@ -53,6 +54,7 @@ export default function MergeVideos() {
   const [autoRequestId, setAutoRequestId] = useState<string | null>(null)
   const [autoPairs, setAutoPairs] = useState<PairTask[]>([])
   const [autoError, setAutoError] = useState<string | null>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const mode = MODES[modeLabel]
   const compatible = mode === 'compatible'
@@ -81,12 +83,26 @@ export default function MergeVideos() {
     })
   }, [autoRequestId])
 
+  const addVideoPaths = (paths: string[]) => {
+    if (!paths.length) return
+    setVideos((prev) => {
+      const existing = new Set(prev)
+      const additions = paths.filter((p) => !existing.has(p))
+      return [...prev, ...additions]
+    })
+  }
+
   const addVideos = async () => {
     const paths = await window.api.pickFiles({ filters: VIDEO_FILTERS })
-    if (!paths.length) return
-    const existing = new Set(videos)
-    const additions = paths.filter((p) => !existing.has(p))
-    setVideos((prev) => [...prev, ...additions])
+    addVideoPaths(paths)
+  }
+
+  const handleVideoDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const videoExtensions = VIDEO_FILTERS.flatMap((f) => f.extensions)
+    const paths = getDroppedPaths(e.dataTransfer).filter((p) => videoExtensions.includes(extensionOf(p)))
+    addVideoPaths(paths)
   }
 
   const removeVideo = (path: string) => setVideos((prev) => prev.filter((v) => v !== path))
@@ -133,38 +149,48 @@ export default function MergeVideos() {
   return (
     <div className="flex flex-col gap-6">
       <Panel title="Unión manual de videos">
-        <div className="flex flex-row justify-between items-center">
-          <span className="text-neutral-200">Videos seleccionados: {videos.length}</span>
-          <div className="flex flex-row gap-2">
-            <button type="button" onClick={addVideos} className="text-primary cursor-pointer text-sm underline">
-              Añadir videos
-            </button>
-            {videos.length > 0 && (
-              <button type="button" onClick={clearVideos} className="text-neutral-400 cursor-pointer text-sm underline">
-                Limpiar lista
+        <div
+          className={`flex flex-col gap-3 rounded-xl transition-colors ${isDragOver ? 'ring-2 ring-primary' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setIsDragOver(true)
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleVideoDrop}
+        >
+          <div className="flex flex-row justify-between items-center">
+            <span className="text-neutral-200">Videos seleccionados: {videos.length} (o arrastra aquí)</span>
+            <div className="flex flex-row gap-2">
+              <button type="button" onClick={addVideos} className="text-primary cursor-pointer text-sm underline">
+                Añadir videos
               </button>
-            )}
+              {videos.length > 0 && (
+                <button type="button" onClick={clearVideos} className="text-neutral-400 cursor-pointer text-sm underline">
+                  Limpiar lista
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        {videos.length > 0 && (
-          <div className="flex flex-col gap-1">
-            {videos.map((video, index) => (
-              <div key={video} className="flex flex-row items-center gap-2 p-2 rounded-lg bg-neutral-800">
-                <span className="flex-1 truncate text-sm">{baseName(video)}</span>
-                <button type="button" onClick={() => moveVideo(index, -1)} className="text-neutral-400 hover:text-white cursor-pointer text-sm">
-                  Subir
-                </button>
-                <button type="button" onClick={() => moveVideo(index, 1)} className="text-neutral-400 hover:text-white cursor-pointer text-sm">
-                  Bajar
-                </button>
-                <button type="button" onClick={() => removeVideo(video)} className="text-red-400 hover:text-red-300 cursor-pointer text-sm">
-                  Quitar
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+          {videos.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {videos.map((video, index) => (
+                <div key={video} className="flex flex-row items-center gap-2 p-2 rounded-lg bg-neutral-800">
+                  <span className="flex-1 truncate text-sm">{baseName(video)}</span>
+                  <button type="button" onClick={() => moveVideo(index, -1)} className="text-neutral-400 hover:text-white cursor-pointer text-sm">
+                    Subir
+                  </button>
+                  <button type="button" onClick={() => moveVideo(index, 1)} className="text-neutral-400 hover:text-white cursor-pointer text-sm">
+                    Bajar
+                  </button>
+                  <button type="button" onClick={() => removeVideo(video)} className="text-red-400 hover:text-red-300 cursor-pointer text-sm">
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </Panel>
 
       <Panel title="Emparejado automático por carpetas">
