@@ -12,7 +12,7 @@ export function TaskList({ tasks, onCancel }: { tasks: Task[]; onCancel: (id: st
         <div key={task.id} className="w-full p-3 rounded-xl bg-neutral-800 flex flex-col gap-2">
           <div className="flex flex-row justify-between items-center gap-2">
             <span className="truncate">{task.name}</span>
-            {task.status === 'running' && (
+            {(task.status === 'running' || task.status === 'pending') && (
               <button
                 type="button"
                 onClick={() => onCancel(task.id)}
@@ -23,6 +23,7 @@ export function TaskList({ tasks, onCancel }: { tasks: Task[]; onCancel: (id: st
             )}
           </div>
 
+          {task.status === 'pending' && <span className="text-sm text-neutral-400">En cola…</span>}
           {task.status === 'running' && <ProgressBar percent={task.progress} />}
 
           {task.status === 'done' && task.output && (

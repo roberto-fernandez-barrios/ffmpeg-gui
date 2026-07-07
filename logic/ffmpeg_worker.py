@@ -54,6 +54,7 @@ class FFmpegWorker(QThread):
         """
         self.proc = subprocess.Popen(
             self.command,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,

@@ -109,6 +109,7 @@ def run_ffmpeg(command, output_file, total_frames, watcher, progress_prefix=None
     """
     proc = subprocess.Popen(
         command,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
