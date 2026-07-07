@@ -2,6 +2,14 @@
 
 Interfaz de escritorio alternativa para el backend de `ffmpeg-gui`, construida con Electron, React, TypeScript, Vite y Tailwind CSS.
 
+![Imágenes a video](../docs/screenshots/frontend-img2vid.png)
+
+Siete pestañas con la misma cobertura de funciones que la GUI PyQt6 original: **Imágenes a video**, **Editar audio**, **Cortar Video**, **Limitar Kps**, **Escalar Video**, **Recortar Video** y **Unir Videos** (manual o emparejado automático por carpetas — esta última no existía en el scaffold original). Todas las pestañas soportan drag & drop de archivos/carpetas, muestran una cola de tareas con progreso y cancelación, y deshabilitan el envío hasta que los campos obligatorios están completos.
+
+| Editar audio | Unir videos |
+|---|---|
+| ![Editar audio](../docs/screenshots/frontend-audio.png) | ![Unir videos](../docs/screenshots/frontend-merge.png) |
+
 ## Cómo se conecta con el backend
 
 Esta aplicación no reimplementa la lógica de FFmpeg: llama al backend Python que vive en `../logic/`.

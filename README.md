@@ -12,7 +12,7 @@
 Este repositorio contiene dos interfaces para el mismo backend de FFmpeg:
 
 * **`gui/` + `main.py`** — la aplicación de escritorio original en **PyQt6**.
-* **`frontend/`** — una interfaz alternativa en **Electron + React + TypeScript**, que llama al mismo backend Python a través de `logic/cli.py` (ver `frontend/README.md` para el detalle de la integración).
+* **`frontend/`** — una interfaz alternativa en **Electron + React + TypeScript**, con la misma cobertura de funciones que la PyQt6, que llama al mismo backend Python a través de `logic/cli.py` (ver `frontend/README.md` para el detalle de la integración).
 
 Ambas interfaces comparten la lógica de construcción de comandos FFmpeg en `logic/ffmpeg_logic.py`, que ofrece:
 
@@ -23,17 +23,26 @@ Ambas interfaces comparten la lógica de construcción de comandos FFmpeg en `lo
 * 📏 **Escalar videos** a dimensiones personalizadas con presets de codificación y CRF.
 * 🖼️ **Recortar (crop)** videos especificando píxeles a eliminar por cada lado.
 * 🔗 **Unir videos**, manualmente o emparejando automáticamente por resolución entre dos carpetas.
-* 🖱️ **Drag & Drop** de archivos/carpeta para una experiencia más ágil (solo en la GUI PyQt6).
+* 🖱️ **Drag & Drop** de archivos/carpeta para una experiencia más ágil (en ambas interfaces).
 * 🛑 **Cola de tareas** con barras de progreso, cancelación segura y limpieza de salidas incompletas.
 
 ---
 
-## 📸 Captura de Pantalla
+## 📸 Capturas de pantalla
+
+### Frontend Electron
+
+| Imágenes a video | Editar audio | Unir videos |
+|---|---|---|
+| ![Imágenes a video](docs/screenshots/frontend-img2vid.png) | ![Editar audio](docs/screenshots/frontend-audio.png) | ![Unir videos](docs/screenshots/frontend-merge.png) |
+
+### GUI PyQt6
+
 ![Interfaz Principal](https://github.com/user-attachments/assets/798409d4-9c40-4bf0-be3b-e0c519d5d141)
 
 ---
 
-## ⚙️ Instalación
+## ⚙️ Instalación (GUI PyQt6)
 
 1. Clona el repositorio:
 
@@ -66,7 +75,7 @@ Ambas interfaces comparten la lógica de construcción de comandos FFmpeg en `lo
 
 ## 📦 Empaquetado (Windows)
 
-Para generar un `.exe` ejecutable:
+### GUI PyQt6
 
 ```bash
 pyinstaller --onefile --windowed \
@@ -78,6 +87,15 @@ pyinstaller --onefile --windowed \
 
 El ejecutable se ubicará en `dist/FFmpeg-GUI-<versión>.exe`. Puedes limpiar la carpeta `build/` y el archivo `.spec` si sólo deseas distribuir el EXE.
 
+### Frontend Electron
+
+```bash
+cd frontend
+npm run build
+```
+
+Genera un instalador NSIS en `frontend/release/<versión>/` que **no necesita Python instalado** en la máquina de destino (empaqueta `logic/cli.py` como ejecutable independiente vía PyInstaller — ver `frontend/README.md`). Solo hace falta `ffmpeg`/`ffprobe` en el `PATH` del sistema, igual que la GUI PyQt6.
+
 ---
 
 ## 🖥️ Frontend Electron (alternativa)
@@ -85,24 +103,27 @@ El ejecutable se ubicará en `dist/FFmpeg-GUI-<versión>.exe`. Puedes limpiar la
 ```bash
 cd frontend
 npm install
-npm run dev        # desarrollo, necesita python en el PATH
-npm run build       # genera un instalador .exe (release/<version>/) que NO necesita python
+npm run dev    # desarrollo, necesita python en el PATH
+npm run build  # instalador .exe, ver sección de empaquetado arriba
 ```
 
-En ambos casos hace falta `ffmpeg`/`ffprobe` en el `PATH`. Más detalles en `frontend/README.md`.
+Más detalles en `frontend/README.md`.
 
 ---
 
-## 🚀 Uso (PyQt6)
+## 🚀 Uso
 
-1. **Convertir imágenes**: arrastra o selecciona una carpeta con secuencia `PNG`. Ajusta **FPS**, **CRF**, **fade**, formato y pista de audio (opcional). Pulsa **Convertir**.
+Ambas interfaces cubren las mismas siete operaciones, con formularios equivalentes:
+
+1. **Convertir imágenes**: arrastra o selecciona una carpeta con secuencia `PNG`/`JPG`. Ajusta **FPS**, **CRF**, **fade**, formato, formato YUV y pista de audio (opcional). Pulsa **Convertir**.
 2. **Editar audio**: selecciona un video; elige operación (Añadir, Quitar, Sustituir). Si aplica, arrastra o selecciona la pista de audio. Pulsa **Procesar**.
-3. **Cortar video**: selecciona un video; indica inicio y duración (o frames+FPS). Pulsa **Cortar Video**.
+3. **Cortar video**: selecciona un video; indica inicio y duración por tiempo o por frames. Pulsa **Cortar Video**.
 4. **Limitar bitrate**: selecciona un video; ajusta **bitrate** y **maxrate**. Pulsa **Limitar Kps**.
 5. **Escalar video**: selecciona un video; define **ancho/alto**, **preset** y **CRF**. Pulsa **Reescalar Video**.
-6. **Recortar video**: selecciona un video; define píxeles a recortar por cada lado. Pulsa **Recortar Video**.
+6. **Recortar video**: selecciona un video; define píxeles a recortar por cada lado, con fundidos opcionales. Pulsa **Recortar Video**.
+7. **Unir videos**: añade una lista manual de videos (reordenable) o empareja automáticamente dos carpetas por resolución. Elige modo rápido (sin recodificar) o compatible.
 
-Todas las operaciones se muestran en una cola de tareas con progreso y opción de cancelar.
+Todas las operaciones se muestran en una cola de tareas con progreso en tiempo real y opción de cancelar; los botones de envío se deshabilitan hasta que los campos obligatorios estén completos.
 
 ---
 
@@ -117,7 +138,9 @@ ffmpeg-gui/
 │  ├─ ffmpeg_logic.py # Construcción de comandos FFmpeg (sin dependencias de PyQt)
 │  ├─ ffmpeg_worker.py# QThread para ejecutar FFmpeg y notificar progreso (usado por gui/)
 │  └─ cli.py          # Puente headless usado por el frontend Electron (stdin/stdout JSON)
-├─ frontend/          # Interfaz alternativa Electron + React + TypeScript
+├─ frontend/          # Interfaz alternativa Electron + React + TypeScript (ver su README)
+├─ docs/
+│  └─ screenshots/    # Capturas usadas en este README
 ├─ static/
 │  └─ icons/          # Iconos de la aplicación
 ├─ main.py            # Punto de entrada de la aplicación PyQt6
