@@ -1,4 +1,4 @@
-# gui/tabs/images_tab.py
+# gui/tabs/convert_images_tab.py
 
 import os
 from PyQt6.QtWidgets import (
@@ -18,6 +18,7 @@ class ImagesTab(QWidget):
         self.setAcceptDrops(True)
         self.image_folder = None  # Ruta a la carpeta con imágenes
         self.audio_path = None    # Ruta opcional al archivo de audio
+        self.active_workers = []
         self.init_ui()
 
     def init_ui(self):
@@ -243,20 +244,22 @@ class ImagesTab(QWidget):
 
         # Se crea el worker que ejecutará FFmpeg para esta conversión
         worker = FFmpegWorker(command, total_images, output_file, enable_logs=False)
+        self.active_workers.append(worker)
         # Conectamos la señal de progreso para actualizar la barra del widget de tarea
         worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
         # Conectamos la señal de finalización para actualizar el estado del widget
-        worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message))
+        worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message, worker))
         # Permite cancelar la tarea: se conecta la señal del widget a una función que llama a cancel()
         task_widget.cancelRequested.connect(lambda: self.cancel_conversion(worker, task_widget))
         worker.start()
 
-    def handle_task_finished(self, task_widget, success, message):
+    def handle_task_finished(self, task_widget, success, message, worker):
         """
         Actualiza el widget de la tarea según el resultado de la conversión.
         Si es exitoso, muestra el estado 'Completado' y crea un enlace para abrir el archivo.
         En caso de error o cancelación, se actualiza el estado y la barra de progreso.
         """
+        self.remove_worker_reference(worker)
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
@@ -287,6 +290,15 @@ class ImagesTab(QWidget):
         worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)
+        self.remove_worker_reference(worker)
+
+    def remove_worker_reference(self, worker):
+        """Elimina la referencia al worker cuando finaliza o se cancela."""
+        try:
+            if worker in self.active_workers:
+                self.active_workers.remove(worker)
+        except Exception:
+            pass
 
     def clear_audio(self):
         """Quita la ruta y el label de audio."""

@@ -26,7 +26,7 @@ def main():
     app = QApplication(sys.argv)
     
     # Utiliza la función resource_path para obtener la ruta correcta al icono
-    icon_path = resource_path("static\icons\icon.ico")
+    icon_path = resource_path(os.path.join("static", "icons", "icon.ico"))
     app.setWindowIcon(QIcon(icon_path))
     
     window = FFmpegGUI() # Crea la instancia de la ventana principal

@@ -1,4 +1,4 @@
-import { ipcRenderer, contextBridge, type OpenDialogOptions } from 'electron'
+import { ipcRenderer, contextBridge, webUtils, type OpenDialogOptions } from 'electron'
 
 export type OperationMessage =
   | { type: 'progress'; percent: number }
@@ -57,6 +57,11 @@ const api = {
   },
   checkDependencies(): Promise<{ ffmpeg: boolean; ffprobe: boolean }> {
     return ipcRenderer.invoke('dependencies:check')
+  },
+  getPathForFile(file: File): string {
+    // Electron dejó de exponer `File.path` (ver dragDrop.ts); esta es la
+    // sustitución oficial, disponible en el proceso de preload/renderer.
+    return webUtils.getPathForFile(file)
   },
 }
 

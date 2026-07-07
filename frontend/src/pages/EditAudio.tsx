@@ -4,6 +4,7 @@ import { VideoPicker, AudioPicker } from '../components/FilePicker'
 import { SelectField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 const OPERATIONS: Record<string, 'add' | 'remove' | 'replace'> = {
   'Añadir audio': 'add',
@@ -33,7 +34,7 @@ export default function EditAudio() {
     if (!video) return
     if (needsAudio && !audio) return
 
-    submit(`${LABELS[mode]}: ${video.split(/[\\/]/).pop()}`, 'audio_edit', {
+    submit(`${LABELS[mode]}: ${baseName(video)}`, 'audio_edit', {
       mode,
       video,
       audio: needsAudio ? audio : undefined,

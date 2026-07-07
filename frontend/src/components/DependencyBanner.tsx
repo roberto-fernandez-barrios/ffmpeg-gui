@@ -5,13 +5,19 @@ export function DependencyBanner() {
 
   useEffect(() => {
     let cancelled = false
-    window.api.checkDependencies().then(({ ffmpeg, ffprobe }) => {
-      if (cancelled) return
-      const names: string[] = []
-      if (!ffmpeg) names.push('ffmpeg')
-      if (!ffprobe) names.push('ffprobe')
-      setMissing(names)
-    })
+    window.api
+      .checkDependencies()
+      .then(({ ffmpeg, ffprobe }) => {
+        if (cancelled) return
+        const names: string[] = []
+        if (!ffmpeg) names.push('ffmpeg')
+        if (!ffprobe) names.push('ffprobe')
+        setMissing(names)
+      })
+      .catch(() => {
+        // Si falla la comprobación (IPC caído, etc.), no bloqueamos la UI con
+        // un aviso falso de dependencias ausentes.
+      })
     return () => {
       cancelled = true
     }

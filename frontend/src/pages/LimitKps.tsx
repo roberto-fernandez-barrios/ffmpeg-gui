@@ -4,6 +4,7 @@ import { VideoPicker } from '../components/FilePicker'
 import { TextField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 export default function LimitKps() {
   const [video, setVideo] = useState<string | null>(null)
@@ -16,7 +17,7 @@ export default function LimitKps() {
     e.preventDefault()
     if (!video) return
 
-    submit(`Limitación: ${video.split(/[\\/]/).pop()}`, 'limit_kbps', {
+    submit(`Limitación: ${baseName(video)}`, 'limit_kbps', {
       video,
       bitrate,
       maxrate,

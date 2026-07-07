@@ -4,6 +4,7 @@ import { VideoPicker } from '../components/FilePicker'
 import { NumberField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 export default function TrimVideo() {
   const [video, setVideo] = useState<string | null>(null)
@@ -20,7 +21,7 @@ export default function TrimVideo() {
     e.preventDefault()
     if (!video) return
 
-    submit(`Recorte: ${video.split(/[\\/]/).pop()}`, 'crop_video', {
+    submit(`Recorte: ${baseName(video)}`, 'crop_video', {
       video,
       top,
       bottom,

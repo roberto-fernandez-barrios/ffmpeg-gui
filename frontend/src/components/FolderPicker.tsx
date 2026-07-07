@@ -1,9 +1,5 @@
 import { useState, type DragEvent } from 'react'
-import { getDroppedPaths } from '../dragDrop'
-
-function baseName(folderPath: string) {
-  return folderPath.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? folderPath
-}
+import { getDroppedPaths, baseName } from '../dragDrop'
 
 export function FolderPicker({
   label,

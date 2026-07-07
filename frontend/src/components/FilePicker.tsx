@@ -1,12 +1,8 @@
 import { useState, type DragEvent } from 'react'
-import { getDroppedPaths, extensionOf } from '../dragDrop'
+import { getDroppedPaths, extensionOf, baseName } from '../dragDrop'
 
 const VIDEO_FILTERS = [{ name: 'Videos', extensions: ['mp4', 'avi', 'mkv', 'mov'] }]
 const AUDIO_FILTERS = [{ name: 'Audio', extensions: ['mp3', 'wav', 'aac'] }]
-
-function baseName(filePath: string) {
-  return filePath.split(/[\\/]/).pop() ?? filePath
-}
 
 function FilePickerBase({
   label,

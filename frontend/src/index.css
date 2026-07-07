@@ -11,6 +11,32 @@ body {
   color: black;
 }
 
+/* Scrollbar oscuro a juego con el tema; por defecto Chromium/Electron pinta
+   uno claro que desentona fuertemente sobre el fondo oscuro de la app. */
+* {
+  scrollbar-color: #525252 #171717;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: #171717;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #525252;
+  border-radius: 9999px;
+  border: 2px solid #171717;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #737373;
+}
+
 @theme {
   --color-primary: #e8fd55;
 }

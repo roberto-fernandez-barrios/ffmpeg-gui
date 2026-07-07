@@ -4,6 +4,7 @@ import { VideoPicker } from '../components/FilePicker'
 import { TextField, SelectField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 const PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow']
 
@@ -23,7 +24,7 @@ export default function ScaleVideo() {
     e.preventDefault()
     if (!canSubmit) return
 
-    submit(`Reescalado: ${video!.split(/[\\/]/).pop()}`, 'scale_video', {
+    submit(`Reescalado: ${baseName(video!)}`, 'scale_video', {
       video,
       width,
       height,

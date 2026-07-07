@@ -12,7 +12,6 @@ from gui.tabs.merge_videos_tab import MergeVideosTab
 class FFmpegGUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.workers = []  # Lista para almacenar los workers activos
         self.setWindowTitle("FFmpeg GUI 3.1.1")
         self.setGeometry(100, 100, 730, 500)  # Ajusta el tamaño de la ventana según lo necesites
         self.init_ui()
@@ -44,3 +43,19 @@ class FFmpegGUI(QWidget):
         self.tabs.addTab(self.merge_videos_tab, "Fusionar Videos")
 
         self.setLayout(main_layout)
+
+    def closeEvent(self, event):
+        """
+        Cancela y espera a que terminen todos los workers FFmpeg activos de
+        cada pestaña antes de cerrar, para no dejar procesos ffmpeg huérfanos.
+        """
+        all_tabs = [
+            self.images_tab, self.audio_editing_tab, self.cut_video_tab,
+            self.limit_kps_tab, self.scale_video_tab, self.crop_video_tab,
+            self.merge_videos_tab,
+        ]
+        for tab in all_tabs:
+            for worker in list(getattr(tab, "active_workers", [])):
+                worker.cancel()
+                worker.wait(5000)
+        event.accept()

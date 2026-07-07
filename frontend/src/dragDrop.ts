@@ -1,15 +1,15 @@
-// Electron añade `path` a los File nativos que llegan por drag & drop desde el
-// explorador del sistema operativo, algo que la lib.dom.d.ts no declara.
-interface FileWithPath extends File {
-  path: string
-}
-
+// Electron eliminó `File.path` (deprecado desde la v32); la sustitución oficial
+// es `webUtils.getPathForFile`, expuesta vía contextBridge en preload.ts.
 export function getDroppedPaths(dataTransfer: DataTransfer): string[] {
   return Array.from(dataTransfer.files)
-    .map((file) => (file as FileWithPath).path)
+    .map((file) => window.api.getPathForFile(file))
     .filter((path): path is string => Boolean(path))
 }
 
 export function extensionOf(path: string): string {
   return path.split('.').pop()?.toLowerCase() ?? ''
+}
+
+export function baseName(path: string): string {
+  return path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() ?? path
 }

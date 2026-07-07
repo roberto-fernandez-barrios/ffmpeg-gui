@@ -30,6 +30,7 @@ class AudioEditingTab(QWidget):
         self.setAcceptDrops(True)
         self.video_file = None    # Video a editar
         self.audio_file = None    # Archivo de audio para añadir/sustituir
+        self.active_workers = []
         self.init_ui()
 
     def init_ui(self):
@@ -209,17 +210,19 @@ class AudioEditingTab(QWidget):
         self.tasks_layout.addWidget(task_widget)
         # Usamos un valor de referencia para total_frames (por ejemplo, 100) ya que estas operaciones suelen ser rápidas.
         worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
+        self.active_workers.append(worker)
         worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        worker.finishedSignal.connect(lambda success, message: self.handle_audio_edit_finished(task_widget, success, message))
+        worker.finishedSignal.connect(lambda success, message: self.handle_audio_edit_finished(task_widget, success, message, worker))
         task_widget.cancelRequested.connect(lambda: self.cancel_audio_edit(worker, task_widget))
         worker.start()
 
-    def handle_audio_edit_finished(self, task_widget, success, message):
+    def handle_audio_edit_finished(self, task_widget, success, message, worker):
         """
         Actualiza el widget de la tarea según el resultado de la operación de edición de audio.
         Si es exitoso, muestra "Completado" y crea un enlace para abrir el archivo de salida.
         En caso de error o cancelación, se actualiza el estado y la barra de progreso.
         """
+        self.remove_worker_reference(worker)
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
@@ -259,3 +262,12 @@ class AudioEditingTab(QWidget):
         worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)
+        self.remove_worker_reference(worker)
+
+    def remove_worker_reference(self, worker):
+        """Elimina la referencia al worker cuando finaliza o se cancela."""
+        try:
+            if worker in self.active_workers:
+                self.active_workers.remove(worker)
+        except Exception:
+            pass

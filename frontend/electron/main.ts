@@ -177,7 +177,22 @@ function createAppMenu() {
   // el menú por defecto de Electron (File/View/Window/Help) no aporta nada aquí.
   const template: MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
-    { role: 'editMenu' as const },
+    {
+      // Se reconstruye a mano en vez de usar `role: 'editMenu'` porque ese
+      // rol trae su propia etiqueta ("Edit") en inglés, que desentona con
+      // el resto de la interfaz en español. Los roles de cada item se
+      // mantienen para conservar el comportamiento y atajos nativos.
+      label: 'Editar',
+      submenu: [
+        { role: 'undo' as const, label: 'Deshacer' },
+        { role: 'redo' as const, label: 'Rehacer' },
+        { type: 'separator' as const },
+        { role: 'cut' as const, label: 'Cortar' },
+        { role: 'copy' as const, label: 'Copiar' },
+        { role: 'paste' as const, label: 'Pegar' },
+        { role: 'selectAll' as const, label: 'Seleccionar todo' },
+      ],
+    },
     {
       label: 'Ver',
       submenu: [
@@ -197,6 +212,10 @@ function createWindow() {
   win = new BrowserWindow({
     title: 'FFmpeg GUI',
     icon: path.join(process.env.VITE_PUBLIC, 'logo.png'),
+    // Evita el flash de fondo blanco al arrancar mientras carga una app con
+    // tema oscuro: sin esto, Electron pinta la ventana en blanco por defecto
+    // hasta que el renderer termina de montar y aplicar sus estilos.
+    backgroundColor: '#171717',
     width: 1200,
     height: 860,
     webPreferences: {

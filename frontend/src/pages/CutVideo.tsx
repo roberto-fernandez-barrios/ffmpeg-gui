@@ -4,6 +4,7 @@ import { VideoPicker } from '../components/FilePicker'
 import { TextField, NumberField, SelectField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 const MODES: Record<string, 'time' | 'frames'> = {
   Tiempo: 'time',
@@ -28,7 +29,7 @@ export default function CutVideo() {
     e.preventDefault()
     if (!video) return
 
-    submit(`Corte: ${video.split(/[\\/]/).pop()}`, 'cut_video', {
+    submit(`Corte: ${baseName(video)}`, 'cut_video', {
       video,
       cutMode,
       start,

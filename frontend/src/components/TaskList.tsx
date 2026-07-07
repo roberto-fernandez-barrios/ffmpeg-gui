@@ -1,9 +1,6 @@
 import type { Task } from '../types/task'
 import { ProgressBar } from './ProgressBar'
-
-function baseName(filePath: string) {
-  return filePath.split(/[\\/]/).pop() ?? filePath
-}
+import { baseName } from '../dragDrop'
 
 export function TaskList({ tasks, onCancel }: { tasks: Task[]; onCancel: (id: string) => void }) {
   if (tasks.length === 0) return null

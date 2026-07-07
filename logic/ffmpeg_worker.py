@@ -61,6 +61,12 @@ class FFmpegWorker(QThread):
             creationflags=self.CREATE_NO_WINDOW
         )
 
+        # cancel() pudo llamarse entre la creación del worker y este punto
+        # (self.proc aún era None), en cuyo caso no llegó a matar nada.
+        # Sin este chequeo el proceso seguiría corriendo hasta terminar solo.
+        if self.cancelled:
+            self.proc.kill()
+
         # Si se habilitan logs, abre un archivo para escribir la salida de FFmpeg
         if self.enable_logs:
             log_file = open("ffmpeg.log", "a", encoding="utf-8")

@@ -5,7 +5,7 @@ import { TextField, SelectField, SubmitButton } from '../components/fields'
 import { ProgressBar } from '../components/ProgressBar'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
-import { getDroppedPaths, extensionOf } from '../dragDrop'
+import { getDroppedPaths, extensionOf, baseName } from '../dragDrop'
 import type { OperationMessage } from '../../electron/preload'
 
 const MODES: Record<string, 'fast' | 'compatible'> = {
@@ -16,10 +16,6 @@ const MODES: Record<string, 'fast' | 'compatible'> = {
 const PRESETS = ['ultrafast', 'superfast', 'veryfast', 'faster', 'fast', 'medium', 'slow', 'slower', 'veryslow']
 
 const VIDEO_FILTERS = [{ name: 'Videos', extensions: ['mp4', 'avi', 'mkv', 'mov'] }]
-
-function baseName(filePath: string) {
-  return filePath.split(/[\\/]/).pop() ?? filePath
-}
 
 interface PairTask {
   pairIndex: number
@@ -158,20 +154,25 @@ export default function MergeVideos() {
     setAutoError(null)
     setAutoLoading(true)
 
-    const { requestId } = await window.api.startOperation('merge_auto', {
-      folder1,
-      folder2,
-      mode,
-      preset,
-      crf,
-      format: 'mp4',
-    })
-    autoRequestIdRef.current = requestId
+    try {
+      const { requestId } = await window.api.startOperation('merge_auto', {
+        folder1,
+        folder2,
+        mode,
+        preset,
+        crf,
+        format: 'mp4',
+      })
+      autoRequestIdRef.current = requestId
 
-    const buffered = pendingAutoMessages.current.get(requestId)
-    if (buffered) {
-      pendingAutoMessages.current.delete(requestId)
-      for (const data of buffered) applyAutoMessage(data)
+      const buffered = pendingAutoMessages.current.get(requestId)
+      if (buffered) {
+        pendingAutoMessages.current.delete(requestId)
+        for (const data of buffered) applyAutoMessage(data)
+      }
+    } catch (err) {
+      setAutoLoading(false)
+      setAutoError(err instanceof Error ? err.message : 'No se pudo iniciar la fusión automática.')
     }
   }
 

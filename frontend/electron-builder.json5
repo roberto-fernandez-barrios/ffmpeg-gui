@@ -11,18 +11,18 @@
     "dist",
     "dist-electron"
   ],
+  // Solo se distribuye para Windows: scripts/build-backend.cjs empaqueta el
+  // backend con PyInstaller asumiendo venv/Scripts/python.exe y produce un
+  // .exe; en mac/linux ni encuentra ese intérprete ni el binario resultante
+  // tendría esa extensión, así que esos targets fallarían o generarían un
+  // paquete sin backend funcional. Si se quiere soporte multiplataforma,
+  // build-backend.cjs necesita generalizarse primero.
   "extraResources": [
     {
       "from": "backend-dist/ffmpeg-cli-bridge.exe",
       "to": "logic/ffmpeg-cli-bridge.exe"
     }
   ],
-  "mac": {
-    "target": [
-      "dmg"
-    ],
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
-  },
   "win": {
     "icon": "public/icon.ico",
     "target": [
@@ -40,11 +40,5 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
-  },
-  "linux": {
-    "target": [
-      "AppImage"
-    ],
-    "artifactName": "${productName}-Linux-${version}.${ext}"
   }
 }

@@ -5,6 +5,7 @@ import { AudioPicker } from '../components/FilePicker'
 import { TextField, NumberField, SelectField, CheckboxField, SubmitButton } from '../components/fields'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
+import { baseName } from '../dragDrop'
 
 const FORMATS = [
   'mp4 (H.264 16-bit)',
@@ -37,7 +38,7 @@ export default function Img2Vid() {
     e.preventDefault()
     if (!folder) return
 
-    submit(`Conversión: ${folder.split(/[\\/]/).pop()}`, 'img2vid', {
+    submit(`Conversión: ${baseName(folder)}`, 'img2vid', {
       folder,
       fps,
       audioPath: audio,

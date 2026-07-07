@@ -45,16 +45,28 @@ export function useTaskQueue() {
   }, [])
 
   const submit = useCallback(async (name: string, operation: string, params: unknown) => {
-    const { requestId } = await window.api.startOperation(operation, params)
-    setTasks((prev) => {
-      let task: Task = { id: requestId, name, status: 'running', progress: 0, output: null, error: null }
-      const buffered = pendingMessages.current.get(requestId)
-      if (buffered) {
-        for (const data of buffered) task = applyMessage(task, data)
-        pendingMessages.current.delete(requestId)
+    try {
+      const { requestId } = await window.api.startOperation(operation, params)
+      setTasks((prev) => {
+        let task: Task = { id: requestId, name, status: 'running', progress: 0, output: null, error: null }
+        const buffered = pendingMessages.current.get(requestId)
+        if (buffered) {
+          for (const data of buffered) task = applyMessage(task, data)
+          pendingMessages.current.delete(requestId)
+        }
+        return [task, ...prev]
+      })
+    } catch (err) {
+      const failedTask: Task = {
+        id: crypto.randomUUID(),
+        name,
+        status: 'error',
+        progress: 0,
+        output: null,
+        error: err instanceof Error ? err.message : 'No se pudo iniciar la operación.',
       }
-      return [task, ...prev]
-    })
+      setTasks((prev) => [failedTask, ...prev])
+    }
   }, [])
 
   const cancel = useCallback((taskId: string) => {

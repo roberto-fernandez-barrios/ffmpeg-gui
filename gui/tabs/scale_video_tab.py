@@ -28,6 +28,7 @@ class ScaleVideoTab(QWidget):
         # Habilitar drag & drop para la selección de video
         self.setAcceptDrops(True)
         self.input_video = None  # Ruta del video de entrada
+        self.active_workers = []
         self.init_ui()
 
     def init_ui(self):
@@ -186,13 +187,15 @@ class ScaleVideoTab(QWidget):
 
         # Usamos un valor de referencia para total_frames (p.ej. 100) ya que el escalado suele ser rápido.
         worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
+        self.active_workers.append(worker)
         worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        worker.finishedSignal.connect(lambda success, message: self.handle_scale_task_finished(task_widget, success, message))
+        worker.finishedSignal.connect(lambda success, message: self.handle_scale_task_finished(task_widget, success, message, worker))
         task_widget.cancelRequested.connect(lambda: self.cancel_scale_task(worker, task_widget))
         worker.start()
 
-    def handle_scale_task_finished(self, task_widget, success, message):
+    def handle_scale_task_finished(self, task_widget, success, message, worker):
         """Actualiza el widget de la tarea según el resultado del escalado."""
+        self.remove_worker_reference(worker)
         if success:
             task_widget.update_status("Completado")
             task_widget.update_progress(100)
@@ -221,3 +224,12 @@ class ScaleVideoTab(QWidget):
         worker.cancel()
         task_widget.update_status("Cancelado")
         task_widget.update_progress(0)
+        self.remove_worker_reference(worker)
+
+    def remove_worker_reference(self, worker):
+        """Elimina la referencia al worker cuando finaliza o se cancela."""
+        try:
+            if worker in self.active_workers:
+                self.active_workers.remove(worker)
+        except Exception:
+            pass
