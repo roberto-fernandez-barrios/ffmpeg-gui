@@ -52,6 +52,12 @@ const api = {
   openPath(path: string): Promise<string> {
     return ipcRenderer.invoke('shell:openPath', path)
   },
+  openExternal(url: string): Promise<void> {
+    return ipcRenderer.invoke('shell:openExternal', url)
+  },
+  checkDependencies(): Promise<{ ffmpeg: boolean; ffprobe: boolean }> {
+    return ipcRenderer.invoke('dependencies:check')
+  },
 }
 
 export type Api = typeof api

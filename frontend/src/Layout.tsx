@@ -6,6 +6,7 @@ import LimitKps from './pages/LimitKps'
 import ScaleVideo from './pages/ScaleVideo'
 import TrimVideo from './pages/TrimVideo'
 import MergeVideos from './pages/MergeVideos'
+import { DependencyBanner } from './components/DependencyBanner'
 
 const PAGES = [
   { label: 'Imágenes a video', component: Img2Vid },
@@ -23,6 +24,8 @@ export default function Layout() {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
+      <DependencyBanner />
+
       <nav className="w-full mb-8 flex flex-row flex-wrap gap-1">
         {PAGES.map((page, index) => (
           <button

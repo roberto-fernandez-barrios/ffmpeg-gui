@@ -152,6 +152,23 @@ function registerIpcHandlers() {
   ipcMain.handle('shell:openPath', (_event, filePath: string) => {
     return shell.openPath(filePath)
   })
+
+  ipcMain.handle('shell:openExternal', (_event, url: string) => {
+    return shell.openExternal(url)
+  })
+
+  ipcMain.handle('dependencies:check', () => {
+    return checkDependencies()
+  })
+}
+
+function isOnPath(command: string): boolean {
+  const probe = spawnSync(command, ['-version'], { windowsHide: true })
+  return !probe.error
+}
+
+function checkDependencies(): { ffmpeg: boolean; ffprobe: boolean } {
+  return { ffmpeg: isOnPath('ffmpeg'), ffprobe: isOnPath('ffprobe') }
 }
 
 function createAppMenu() {

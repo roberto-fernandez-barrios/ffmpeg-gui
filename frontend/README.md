@@ -21,7 +21,15 @@ Esta aplicación no reimplementa la lógica de FFmpeg: llama al backend Python q
 
 En **desarrollo** (`npm run dev`), Electron ejecuta `python logic/cli.py` directamente, así que necesitas `python` en el `PATH`. En un **build empaquetado** (`npm run build`), en su lugar se usa un ejecutable independiente (ver más abajo) que ya lleva Python embebido — el usuario final no necesita instalarlo.
 
-En ambos casos hace falta `ffmpeg` y `ffprobe` accesibles en el `PATH` del sistema (no se empaquetan).
+En ambos casos hace falta `ffmpeg` y `ffprobe` accesibles en el `PATH` del sistema (no se empaquetan). Si faltan, la aplicación lo detecta al arrancar y muestra un aviso en la interfaz en vez de fallar en silencio en cada conversión.
+
+## Pruebas
+
+```bash
+npm run test:backend
+```
+
+Ejecuta `../tests/test_cli_bridge.cjs`: genera sus propios ficheros de prueba con `ffmpeg` en una carpeta temporal (nada se commitea al repo), ejercita las 14 operaciones del puente (incluyendo cancelación y una operación desconocida) por el mismo mecanismo de `spawn` que usa `electron/main.ts`, y limpia todo al terminar.
 
 ## Desarrollo
 

@@ -107,7 +107,17 @@ npm run dev    # desarrollo, necesita python en el PATH
 npm run build  # instalador .exe, ver sección de empaquetado arriba
 ```
 
-Más detalles en `frontend/README.md`.
+Al arrancar, la app comprueba que `ffmpeg`/`ffprobe` estén en el `PATH` y muestra un aviso en la interfaz si faltan, en vez de fallar en silencio en cada conversión. Más detalles en `frontend/README.md`.
+
+---
+
+## ✅ Pruebas
+
+```bash
+node tests/test_cli_bridge.cjs
+```
+
+Prueba de regresión end-to-end del puente `logic/cli.py`: genera sus propios ficheros con `ffmpeg` en una carpeta temporal, ejercita las 8 operaciones (incluyendo cancelación a mitad de proceso) por el mismo mecanismo de `spawn` que usa el frontend Electron, y limpia todo al terminar. No requiere nada más que lo que ya necesita la propia app (Python, ffmpeg/ffprobe en el PATH).
 
 ---
 
@@ -139,6 +149,8 @@ ffmpeg-gui/
 │  ├─ ffmpeg_worker.py# QThread para ejecutar FFmpeg y notificar progreso (usado por gui/)
 │  └─ cli.py          # Puente headless usado por el frontend Electron (stdin/stdout JSON)
 ├─ frontend/          # Interfaz alternativa Electron + React + TypeScript (ver su README)
+├─ tests/
+│  └─ test_cli_bridge.cjs # Prueba de regresión end-to-end del puente logic/cli.py
 ├─ docs/
 │  └─ screenshots/    # Capturas usadas en este README
 ├─ static/
