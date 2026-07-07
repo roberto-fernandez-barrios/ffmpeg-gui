@@ -36,7 +36,8 @@ export default function LimitKps() {
           <TextField label="Maxrate (k/M/G)" value={maxrate} onChange={setMaxrate} />
         </Panel>
 
-        <SubmitButton>Limitar Kps</SubmitButton>
+        <SubmitButton disabled={!video}>Limitar Kps</SubmitButton>
+        {!video && <p className="text-sm text-neutral-400 -mt-2">Selecciona un video primero.</p>}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />

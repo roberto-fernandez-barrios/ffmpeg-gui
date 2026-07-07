@@ -51,7 +51,8 @@ export default function TrimVideo() {
           <NumberField label="Fade out al final (segundos)" value={fadeOut} onChange={setFadeOut} min={0} />
         </Panel>
 
-        <SubmitButton>Recortar Video</SubmitButton>
+        <SubmitButton disabled={!video}>Recortar Video</SubmitButton>
+        {!video && <p className="text-sm text-neutral-400 -mt-2">Selecciona un video primero.</p>}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />

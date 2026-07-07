@@ -77,7 +77,8 @@ export default function Img2Vid() {
           <SelectField label="Formato YUV" value={pixFmt} onChange={setPixFmt} options={YUV_FORMATS} />
         </Panel>
 
-        <SubmitButton>Convertir imágenes en video</SubmitButton>
+        <SubmitButton disabled={!folder}>Convertir imágenes en video</SubmitButton>
+        {!folder && <p className="text-sm text-neutral-400 -mt-2">Selecciona una carpeta de imágenes primero.</p>}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />

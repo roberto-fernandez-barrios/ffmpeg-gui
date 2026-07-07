@@ -85,10 +85,11 @@ El ejecutable se ubicará en `dist/FFmpeg-GUI-<versión>.exe`. Puedes limpiar la
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev        # desarrollo, necesita python en el PATH
+npm run build       # genera un instalador .exe (release/<version>/) que NO necesita python
 ```
 
-Necesita `python` y `ffmpeg`/`ffprobe` en el `PATH`. Más detalles en `frontend/README.md`.
+En ambos casos hace falta `ffmpeg`/`ffprobe` en el `PATH`. Más detalles en `frontend/README.md`.
 
 ---
 

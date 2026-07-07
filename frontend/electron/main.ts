@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, type MenuItemConstructorOptions } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
@@ -26,10 +26,14 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 let win: BrowserWindow | null
 
-// El backend Python (logic/cli.py) vive junto a ffmpeg_logic.py, un nivel por
-// encima de esta carpeta de frontend.
+// En desarrollo se ejecuta logic/cli.py con el intérprete de Python del
+// sistema. En un build empaquetado (electron-builder) se usa en su lugar el
+// ejecutable independiente generado por scripts/build-backend.cjs vía
+// PyInstaller, incluido como extraResource — así el usuario final no necesita
+// tener Python instalado (sí necesita ffmpeg/ffprobe en el PATH).
 const BACKEND_DIR = path.join(process.env.APP_ROOT, '..', 'logic')
 const CLI_PATH = path.join(BACKEND_DIR, 'cli.py')
+const BUNDLED_CLI_PATH = path.join(process.resourcesPath, 'logic', 'ffmpeg-cli-bridge.exe')
 
 function resolvePythonExecutable(): string {
   const candidates = ['python', 'python3', 'py']
@@ -42,7 +46,15 @@ function resolvePythonExecutable(): string {
   return 'python'
 }
 
-const PYTHON_EXECUTABLE = resolvePythonExecutable()
+let cachedPythonExecutable: string | null = null
+
+function spawnCliProcess(): ChildProcessWithoutNullStreams {
+  if (app.isPackaged) {
+    return spawn(BUNDLED_CLI_PATH, [], { windowsHide: true })
+  }
+  cachedPythonExecutable ??= resolvePythonExecutable()
+  return spawn(cachedPythonExecutable, ['-u', CLI_PATH], { cwd: BACKEND_DIR, windowsHide: true })
+}
 
 type OperationEntry = {
   child: ChildProcessWithoutNullStreams
@@ -57,10 +69,7 @@ function sendOperationMessage(requestId: string, data: unknown) {
 
 function startOperation(operation: string, params: unknown): { requestId: string } {
   const requestId = randomUUID()
-  const child = spawn(PYTHON_EXECUTABLE, ['-u', CLI_PATH], {
-    cwd: BACKEND_DIR,
-    windowsHide: true,
-  })
+  const child = spawnCliProcess()
 
   operations.set(requestId, { child, finished: false })
 
@@ -145,8 +154,31 @@ function registerIpcHandlers() {
   })
 }
 
+function createAppMenu() {
+  // Solo se conserva lo que un usuario podría necesitar de verdad (portapapeles
+  // para pegar rutas/bitrates, zoom, y devtools para diagnosticar problemas):
+  // el menú por defecto de Electron (File/View/Window/Help) no aporta nada aquí.
+  const template: MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    { role: 'editMenu' as const },
+    {
+      label: 'Ver',
+      submenu: [
+        { role: 'reload' as const },
+        { role: 'toggleDevTools' as const },
+        { type: 'separator' as const },
+        { role: 'resetZoom' as const },
+        { role: 'zoomIn' as const },
+        { role: 'zoomOut' as const },
+      ],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 function createWindow() {
   win = new BrowserWindow({
+    title: 'FFmpeg GUI',
     icon: path.join(process.env.VITE_PUBLIC, 'logo.png'),
     width: 1200,
     height: 860,
@@ -182,6 +214,7 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
+  createAppMenu()
   registerIpcHandlers()
   createWindow()
 })

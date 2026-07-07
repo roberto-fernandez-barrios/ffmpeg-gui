@@ -26,6 +26,7 @@ export default function EditAudio() {
 
   const mode = OPERATIONS[operationLabel]
   const needsAudio = mode !== 'remove'
+  const canSubmit = Boolean(video) && (!needsAudio || Boolean(audio))
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -57,7 +58,12 @@ export default function EditAudio() {
           {needsAudio && <AudioPicker label="Audio" value={audio} onSelect={setAudio} />}
         </Panel>
 
-        <SubmitButton>Procesar</SubmitButton>
+        <SubmitButton disabled={!canSubmit}>Procesar</SubmitButton>
+        {!canSubmit && (
+          <p className="text-sm text-neutral-400 -mt-2">
+            {!video ? 'Selecciona un video primero.' : 'Selecciona un archivo de audio.'}
+          </p>
+        )}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />

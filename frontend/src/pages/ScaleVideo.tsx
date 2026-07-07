@@ -16,12 +16,14 @@ export default function ScaleVideo() {
 
   const { tasks, submit, cancel } = useTaskQueue()
 
+  const dimensionsValid = /^\d+$/.test(width) && /^\d+$/.test(height)
+  const canSubmit = Boolean(video) && dimensionsValid
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!video) return
-    if (!/^\d+$/.test(width) || !/^\d+$/.test(height)) return
+    if (!canSubmit) return
 
-    submit(`Reescalado: ${video.split(/[\\/]/).pop()}`, 'scale_video', {
+    submit(`Reescalado: ${video!.split(/[\\/]/).pop()}`, 'scale_video', {
       video,
       width,
       height,
@@ -45,7 +47,12 @@ export default function ScaleVideo() {
           <TextField label="CRF" value={crf} onChange={setCrf} />
         </Panel>
 
-        <SubmitButton>Reescalar Video</SubmitButton>
+        <SubmitButton disabled={!canSubmit}>Reescalar Video</SubmitButton>
+        {!canSubmit && (
+          <p className="text-sm text-neutral-400 -mt-2">
+            {!video ? 'Selecciona un video primero.' : 'El ancho y el alto deben ser números.'}
+          </p>
+        )}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />

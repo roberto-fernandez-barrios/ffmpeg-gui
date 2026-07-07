@@ -1,4 +1,4 @@
-import { useEffect, useState, type DragEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type DragEvent, type FormEvent } from 'react'
 import { Panel } from '../components/Panel'
 import { FolderPicker } from '../components/FolderPicker'
 import { TextField, SelectField, SubmitButton } from '../components/fields'
@@ -6,6 +6,7 @@ import { ProgressBar } from '../components/ProgressBar'
 import { TaskList } from '../components/TaskList'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { getDroppedPaths, extensionOf } from '../dragDrop'
+import type { OperationMessage } from '../../electron/preload'
 
 const MODES: Record<string, 'fast' | 'compatible'> = {
   'Rápido (sin recodificar)': 'fast',
@@ -51,37 +52,57 @@ export default function MergeVideos() {
 
   const [folder1, setFolder1] = useState<string | null>(null)
   const [folder2, setFolder2] = useState<string | null>(null)
-  const [autoRequestId, setAutoRequestId] = useState<string | null>(null)
+  const [autoLoading, setAutoLoading] = useState(false)
   const [autoPairs, setAutoPairs] = useState<PairTask[]>([])
   const [autoError, setAutoError] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
+  // El requestId de merge_auto puede tardar un tick en conocerse (tras el
+  // `await startOperation`), pero el proceso ya puede haber emitido mensajes.
+  // Se guarda en un ref (no en estado) para que el listener, suscrito una
+  // sola vez al montar, siempre lea el valor más reciente sin re-suscribirse;
+  // y se bufferean por requestId los mensajes que lleguen antes de conocerlo.
+  const autoRequestIdRef = useRef<string | null>(null)
+  const pendingAutoMessages = useRef(new Map<string, OperationMessage[]>())
+
   const mode = MODES[modeLabel]
   const compatible = mode === 'compatible'
 
-  useEffect(() => {
-    if (!autoRequestId) return
-    return window.api.onOperationMessage(({ requestId, data }) => {
-      if (requestId !== autoRequestId) return
-      if (data.type === 'pair_progress') {
-        setAutoPairs((prev) =>
-          upsertPair(prev, data.pairIndex, { progress: data.percent, label: data.label, status: 'running' }),
-        )
-      } else if (data.type === 'pair_done') {
-        setAutoPairs((prev) =>
-          upsertPair(prev, data.pairIndex, {
-            status: data.success ? 'done' : 'error',
-            progress: data.success ? 100 : 0,
-            output: data.output,
-            error: data.error,
-            label: data.label,
-          }),
-        )
-      } else if (data.type === 'result' && !data.success && (!data.pairs || data.pairs.length === 0)) {
+  const applyAutoMessage = (data: OperationMessage) => {
+    if (data.type === 'pair_progress') {
+      setAutoPairs((prev) =>
+        upsertPair(prev, data.pairIndex, { progress: data.percent, label: data.label, status: 'running' }),
+      )
+    } else if (data.type === 'pair_done') {
+      setAutoPairs((prev) =>
+        upsertPair(prev, data.pairIndex, {
+          status: data.success ? 'done' : 'error',
+          progress: data.success ? 100 : 0,
+          output: data.output,
+          error: data.error,
+          label: data.label,
+        }),
+      )
+    } else if (data.type === 'result') {
+      setAutoLoading(false)
+      if (!data.success && (!data.pairs || data.pairs.length === 0)) {
         setAutoError(data.error ?? 'No se encontraron coincidencias.')
       }
+    }
+  }
+
+  useEffect(() => {
+    return window.api.onOperationMessage(({ requestId, data }) => {
+      if (requestId === autoRequestIdRef.current) {
+        applyAutoMessage(data)
+        return
+      }
+      // Podría ser un merge_auto cuyo requestId aún no se ha registrado.
+      const queue = pendingAutoMessages.current.get(requestId) ?? []
+      queue.push(data)
+      pendingAutoMessages.current.set(requestId, queue)
     })
-  }, [autoRequestId])
+  }, [])
 
   const addVideoPaths = (paths: string[]) => {
     if (!paths.length) return
@@ -118,9 +139,11 @@ export default function MergeVideos() {
     })
   }
 
+  const canSubmitManual = videos.length >= 2 && (!compatible || /^\d+$/.test(crf.trim()))
+
   const handleManualSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (videos.length < 2) return
+    if (!canSubmitManual) return
 
     submit(
       mode === 'fast' ? `Unión rápida: ${videos.length} videos` : `Unión compatible: ${videos.length} videos`,
@@ -130,9 +153,11 @@ export default function MergeVideos() {
   }
 
   const handleAutoMerge = async () => {
-    if (!folder1 || !folder2) return
+    if (!folder1 || !folder2 || autoLoading) return
     setAutoPairs([])
     setAutoError(null)
+    setAutoLoading(true)
+
     const { requestId } = await window.api.startOperation('merge_auto', {
       folder1,
       folder2,
@@ -141,10 +166,14 @@ export default function MergeVideos() {
       crf,
       format: 'mp4',
     })
-    setAutoRequestId(requestId)
-  }
+    autoRequestIdRef.current = requestId
 
-  const autoRunning = autoPairs.some((p) => p.status === 'running')
+    const buffered = pendingAutoMessages.current.get(requestId)
+    if (buffered) {
+      pendingAutoMessages.current.delete(requestId)
+      for (const data of buffered) applyAutoMessage(data)
+    }
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -203,10 +232,10 @@ export default function MergeVideos() {
         <button
           type="button"
           onClick={handleAutoMerge}
-          disabled={!folder1 || !folder2 || autoRunning}
+          disabled={!folder1 || !folder2 || autoLoading}
           className="w-full p-2 cursor-pointer rounded-xl text-primary bg-neutral-800 hover:bg-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Fusionar carpetas por resolución
+          {autoLoading ? 'Fusionando...' : 'Fusionar carpetas por resolución'}
         </button>
 
         {autoError && <span className="text-sm text-red-400">{autoError}</span>}
@@ -245,7 +274,12 @@ export default function MergeVideos() {
           )}
         </Panel>
 
-        <SubmitButton>Unir lista manual</SubmitButton>
+        <SubmitButton disabled={!canSubmitManual}>Unir lista manual</SubmitButton>
+        {!canSubmitManual && (
+          <p className="text-sm text-neutral-400 -mt-2">
+            {videos.length < 2 ? 'Selecciona al menos 2 videos.' : 'El CRF debe ser un número entero.'}
+          </p>
+        )}
       </form>
 
       <TaskList tasks={tasks} onCancel={cancel} />
