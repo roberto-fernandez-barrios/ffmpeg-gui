@@ -11,17 +11,14 @@ from PyQt6.QtWidgets import (
     QScrollArea, QFileDialog
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QDesktopServices, QFontMetrics
-from PyQt6.QtCore import QUrl
 
 # Importa la función que genera el comando FFmpeg para limitar kps
 from logic.ffmpeg_logic import limit_kps_command
-# Importa el worker para ejecutar FFmpeg
-from logic.ffmpeg_worker import FFmpegWorker
 # Importa el widget de tarea para gestionar el progreso de cada operación
 from gui.task_widget import ConversionTaskWidget
+from gui.tab_mixins import FfmpegTaskMixin
 
-class LimitKpsTab(QWidget):
+class LimitKpsTab(FfmpegTaskMixin, QWidget):
     def __init__(self):
         super().__init__()
         # Habilitar drag & drop para la selección de video
@@ -153,51 +150,5 @@ class LimitKpsTab(QWidget):
         task_widget = ConversionTaskWidget(task_name)
         self.tasks_layout.addWidget(task_widget)
 
-        # En este caso se usa total_frames=100 como referencia para el progreso
-        worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
-        self.active_workers.append(worker)
-        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message, worker))
-        task_widget.cancelRequested.connect(lambda: self.cancel_task(worker, task_widget))
-        worker.start()
-
-    def handle_task_finished(self, task_widget, success, message, worker):
-        """Actualiza el widget de la tarea según el resultado de la conversión."""
-        self.remove_worker_reference(worker)
-        if success:
-            task_widget.update_status("Completado")
-            task_widget.update_progress(100)
-            if message and os.path.exists(message):
-                normalized_path = os.path.abspath(message).replace("\\", "/")
-                full_name = os.path.basename(message)
-                prefix = "Limitación: "  # Prefijo para tareas de conversión
-                full_text = prefix + full_name
-                metrics = QFontMetrics(task_widget.name_label.font())
-                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
-                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
-                task_widget.name_label.setText(link_html)
-                task_widget.name_label.setToolTip(full_text)
-                task_widget.name_label.linkActivated.connect(
-                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
-                )
-        elif message.lower() == "cancelado":
-            task_widget.update_status(message)
-            task_widget.update_progress(0)
-        else:
-            task_widget.update_status(f"Error: {message}")
-            task_widget.update_progress(0)
-
-    def cancel_task(self, worker, task_widget):
-        """Cancela la tarea forzando la terminación del worker."""
-        worker.cancel()
-        task_widget.update_status("Cancelado")
-        task_widget.update_progress(0)
-        self.remove_worker_reference(worker)
-
-    def remove_worker_reference(self, worker):
-        """Elimina la referencia al worker cuando finaliza o se cancela."""
-        try:
-            if worker in self.active_workers:
-                self.active_workers.remove(worker)
-        except Exception:
-            pass
+        # total_frames=100 es un valor de referencia para el progreso.
+        self.start_ffmpeg_task(task_widget, command, output_file, total_frames=100, task_prefix="Limitación: ")

@@ -12,15 +12,14 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
     QScrollArea, QFileDialog, QComboBox
 )
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFontMetrics
+from PyQt6.QtCore import Qt
 
 from logic.ffmpeg_logic import cut_video_command
-from logic.ffmpeg_worker import FFmpegWorker
 from gui.task_widget import ConversionTaskWidget
+from gui.tab_mixins import FfmpegTaskMixin
 
 
-class CutVideoTab(QWidget):
+class CutVideoTab(FfmpegTaskMixin, QWidget):
     def __init__(self):
         super().__init__()
         self.setAcceptDrops(True)
@@ -290,60 +289,4 @@ class CutVideoTab(QWidget):
         task_widget = ConversionTaskWidget(task_name)
         self.tasks_layout.addWidget(task_widget)
 
-        worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
-        self.active_workers.append(worker)
-
-        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        worker.finishedSignal.connect(
-            lambda success, message: self.handle_cut_task_finished(task_widget, success, message, worker)
-        )
-        task_widget.cancelRequested.connect(lambda: self.cancel_cut_task(worker, task_widget))
-        worker.start()
-
-    def handle_cut_task_finished(self, task_widget, success, message, worker):
-        """Actualiza el widget de la tarea según el resultado del corte."""
-        self.remove_worker_reference(worker)
-
-        if success:
-            task_widget.update_status("Completado")
-            task_widget.update_progress(100)
-
-            if message and os.path.exists(message):
-                normalized_path = os.path.abspath(message).replace("\\", "/")
-                full_name = os.path.basename(message)
-                prefix = "Corte: "
-                full_text = prefix + full_name
-
-                metrics = QFontMetrics(task_widget.name_label.font())
-                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
-                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
-
-                task_widget.name_label.setText(link_html)
-                task_widget.name_label.setToolTip(full_text)
-                task_widget.name_label.linkActivated.connect(
-                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
-                )
-            else:
-                task_widget.update_status("Corte completado, pero no se encontró la ruta.")
-
-        elif str(message).lower() == "cancelado":
-            task_widget.update_status("Cancelado")
-            task_widget.update_progress(0)
-        else:
-            task_widget.update_status(f"Error: {message}")
-            task_widget.update_progress(0)
-
-    def cancel_cut_task(self, worker, task_widget):
-        """Cancela la tarea forzando la terminación del worker y actualizando el widget."""
-        worker.cancel()
-        task_widget.update_status("Cancelado")
-        task_widget.update_progress(0)
-        self.remove_worker_reference(worker)
-
-    def remove_worker_reference(self, worker):
-        """Elimina la referencia al worker cuando finaliza o se cancela."""
-        try:
-            if worker in self.active_workers:
-                self.active_workers.remove(worker)
-        except Exception:
-            pass
+        self.start_ffmpeg_task(task_widget, command, output_file, total_frames=100, task_prefix="Corte: ")

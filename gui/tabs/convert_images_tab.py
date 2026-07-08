@@ -5,13 +5,12 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QLineEdit,
     QComboBox, QFileDialog, QScrollArea, QFrame, QCheckBox
 )
-from PyQt6.QtCore import QUrl, Qt
-from PyQt6.QtGui import QFontMetrics, QFont, QDesktopServices
+from PyQt6.QtCore import Qt
 from gui.task_widget import ConversionTaskWidget  # Nuestra nueva clase de tarea
 from logic.ffmpeg_logic import convert_images_to_video_command
-from logic.ffmpeg_worker import FFmpegWorker
+from gui.tab_mixins import FfmpegTaskMixin
 
-class ImagesTab(QWidget):
+class ImagesTab(FfmpegTaskMixin, QWidget):
     def __init__(self):
         super().__init__()
         # Habilitar el drag & drop en la pestaña
@@ -242,63 +241,7 @@ class ImagesTab(QWidget):
         task_widget = ConversionTaskWidget(task_name)
         self.tasks_layout.addWidget(task_widget)
 
-        # Se crea el worker que ejecutará FFmpeg para esta conversión
-        worker = FFmpegWorker(command, total_images, output_file, enable_logs=False)
-        self.active_workers.append(worker)
-        # Conectamos la señal de progreso para actualizar la barra del widget de tarea
-        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        # Conectamos la señal de finalización para actualizar el estado del widget
-        worker.finishedSignal.connect(lambda success, message: self.handle_task_finished(task_widget, success, message, worker))
-        # Permite cancelar la tarea: se conecta la señal del widget a una función que llama a cancel()
-        task_widget.cancelRequested.connect(lambda: self.cancel_conversion(worker, task_widget))
-        worker.start()
-
-    def handle_task_finished(self, task_widget, success, message, worker):
-        """
-        Actualiza el widget de la tarea según el resultado de la conversión.
-        Si es exitoso, muestra el estado 'Completado' y crea un enlace para abrir el archivo.
-        En caso de error o cancelación, se actualiza el estado y la barra de progreso.
-        """
-        self.remove_worker_reference(worker)
-        if success:
-            task_widget.update_status("Completado")
-            task_widget.update_progress(100)
-            if message and os.path.exists(message):
-                normalized_path = os.path.abspath(message).replace("\\", "/")
-                full_name = os.path.basename(message)
-                prefix = "Conversión: "
-                full_text = prefix + full_name
-                metrics = QFontMetrics(task_widget.name_label.font())
-                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
-                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
-                task_widget.name_label.setText(link_html)
-                task_widget.name_label.setToolTip(full_text)
-                task_widget.name_label.linkActivated.connect(
-                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
-                )
-        elif message.lower() == "cancelado":
-            task_widget.update_status(message)  # Muestra "Cancelado" sin anteponer "Error:"
-            task_widget.update_progress(0)
-        else:
-            task_widget.update_status(f"Error: {message}")
-            task_widget.update_progress(0)
-
-    def cancel_conversion(self, worker, task_widget):
-        """
-        Cancela la conversión forzando la terminación del worker y actualizando el widget de la tarea.
-        """
-        worker.cancel()
-        task_widget.update_status("Cancelado")
-        task_widget.update_progress(0)
-        self.remove_worker_reference(worker)
-
-    def remove_worker_reference(self, worker):
-        """Elimina la referencia al worker cuando finaliza o se cancela."""
-        try:
-            if worker in self.active_workers:
-                self.active_workers.remove(worker)
-        except Exception:
-            pass
+        self.start_ffmpeg_task(task_widget, command, output_file, total_frames=total_images, task_prefix="Conversión: ")
 
     def clear_audio(self):
         """Quita la ruta y el label de audio."""

@@ -15,15 +15,14 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QGroupBox, QPushButton, QLabel, QFileDialog,
     QComboBox, QScrollArea
 )
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFontMetrics
-from logic.ffmpeg_worker import FFmpegWorker
+from PyQt6.QtCore import Qt
 from gui.task_widget import ConversionTaskWidget
+from gui.tab_mixins import FfmpegTaskMixin
 
 # Asegúrate de tener estas funciones implementadas en logic/ffmpeg_logic.py
 from logic.ffmpeg_logic import add_audio_to_video_command, remove_audio_command, replace_audio_command
 
-class AudioEditingTab(QWidget):
+class AudioEditingTab(FfmpegTaskMixin, QWidget):
     def __init__(self):
         super().__init__()
         # Habilitar el drag & drop en la pestaña para video y audio
@@ -208,66 +207,7 @@ class AudioEditingTab(QWidget):
         task_name = task_prefix + os.path.basename(output_file)
         task_widget = ConversionTaskWidget(task_name)
         self.tasks_layout.addWidget(task_widget)
-        # Usamos un valor de referencia para total_frames (por ejemplo, 100) ya que estas operaciones suelen ser rápidas.
-        worker = FFmpegWorker(command, total_frames=100, output_file=output_file, enable_logs=False)
-        self.active_workers.append(worker)
-        worker.progressChanged.connect(lambda value: task_widget.update_progress(value))
-        worker.finishedSignal.connect(lambda success, message: self.handle_audio_edit_finished(task_widget, success, message, worker))
-        task_widget.cancelRequested.connect(lambda: self.cancel_audio_edit(worker, task_widget))
-        worker.start()
 
-    def handle_audio_edit_finished(self, task_widget, success, message, worker):
-        """
-        Actualiza el widget de la tarea según el resultado de la operación de edición de audio.
-        Si es exitoso, muestra "Completado" y crea un enlace para abrir el archivo de salida.
-        En caso de error o cancelación, se actualiza el estado y la barra de progreso.
-        """
-        self.remove_worker_reference(worker)
-        if success:
-            task_widget.update_status("Completado")
-            task_widget.update_progress(100)
-            if message and os.path.exists(message):
-                normalized_path = os.path.abspath(message).replace("\\", "/")
-                full_name = os.path.basename(message)
-                # Define el prefijo según la operación seleccionada
-                op = self.operation_combo.currentText()
-                prefix = ""
-                if op == "Añadir audio":
-                    prefix = "Añadir audio: "
-                elif op == "Sustituir audio":
-                    prefix = "Sustituir audio: "
-                elif op == "Quitar audio":
-                    prefix = "Quitar audio: "
-                full_text = prefix + full_name
-                metrics = QFontMetrics(task_widget.name_label.font())
-                elided = metrics.elidedText(full_text, Qt.TextElideMode.ElideMiddle, 200)
-                link_html = f"<a style='color:blue; text-decoration:underline;' href='#'>{elided}</a>"
-                task_widget.name_label.setText(link_html)
-                task_widget.name_label.setToolTip(full_text)
-                task_widget.name_label.linkActivated.connect(
-                    lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(normalized_path))
-                )
-        elif message.lower() == "cancelado":
-            task_widget.update_status(message)
-            task_widget.update_progress(0)
-        else:
-            task_widget.update_status(f"Error: {message}")
-            task_widget.update_progress(0)
-
-    def cancel_audio_edit(self, worker, task_widget):
-        """
-        Cancela la operación de edición de audio forzando la terminación del worker
-        y actualizando el widget de la tarea.
-        """
-        worker.cancel()
-        task_widget.update_status("Cancelado")
-        task_widget.update_progress(0)
-        self.remove_worker_reference(worker)
-
-    def remove_worker_reference(self, worker):
-        """Elimina la referencia al worker cuando finaliza o se cancela."""
-        try:
-            if worker in self.active_workers:
-                self.active_workers.remove(worker)
-        except Exception:
-            pass
+        # Nota: total_frames=100 es un valor de referencia, ya que estas
+        # operaciones (copiar/quitar/sustituir audio) suelen ser rápidas.
+        self.start_ffmpeg_task(task_widget, command, output_file, total_frames=100, task_prefix=task_prefix)
