@@ -234,7 +234,7 @@ export default function MergeVideos() {
           type="button"
           onClick={handleAutoMerge}
           disabled={!folder1 || !folder2 || autoLoading}
-          className="w-full p-2 cursor-pointer rounded-xl text-primary bg-neutral-800 hover:bg-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full p-2 cursor-pointer rounded-xl text-primary bg-neutral-800 hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 disabled:text-neutral-500 disabled:bg-neutral-800/60 disabled:cursor-not-allowed disabled:hover:bg-neutral-800/60"
         >
           {autoLoading ? 'Fusionando...' : 'Fusionar carpetas por resolución'}
         </button>

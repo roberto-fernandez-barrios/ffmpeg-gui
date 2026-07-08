@@ -26,11 +26,11 @@ export default function Layout() {
     <div className="max-w-3xl mx-auto p-6">
       <DependencyBanner />
 
-      <nav className="w-full mb-8 flex flex-row flex-wrap gap-1">
+      <nav className="w-full mb-8 flex flex-row flex-nowrap gap-1 overflow-x-auto pb-1">
         {PAGES.map((page, index) => (
           <button
             key={page.label}
-            className={`px-3 py-1 cursor-pointer rounded-lg transition-colors ${
+            className={`shrink-0 px-3 py-1 cursor-pointer rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
               index === activeIndex ? 'bg-primary text-black' : 'bg-neutral-700 text-white hover:bg-neutral-600'
             }`}
             onClick={() => setActiveIndex(index)}

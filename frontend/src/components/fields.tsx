@@ -21,7 +21,7 @@ export function TextField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-32 text-right bg-transparent outline-none text-primary"
+        className="w-32 text-right bg-transparent outline-none text-primary rounded focus-visible:ring-2 focus-visible:ring-primary/60"
       />
     </div>
   )
@@ -46,7 +46,7 @@ export function NumberField({
         value={value}
         min={min}
         onChange={(e) => onChange(e.target.valueAsNumber || 0)}
-        className="w-24 text-right bg-transparent outline-none text-primary [&::-webkit-inner-spin-button]:appearance-none"
+        className="w-24 text-right bg-transparent outline-none text-primary rounded focus-visible:ring-2 focus-visible:ring-primary/60 [&::-webkit-inner-spin-button]:appearance-none"
       />
     </div>
   )
@@ -69,7 +69,7 @@ export function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-neutral-800 text-primary text-right outline-none cursor-pointer"
+        className="bg-neutral-800 text-primary text-right outline-none cursor-pointer rounded focus-visible:ring-2 focus-visible:ring-primary/60"
       >
         {options.map((option) => (
           <option key={option} value={option} className="bg-neutral-800 text-white">
@@ -108,7 +108,7 @@ export function SubmitButton({ children, disabled }: { children: ReactNode; disa
     <button
       type="submit"
       disabled={disabled}
-      className="w-full p-3 cursor-pointer rounded-full text-xl font-medium text-black bg-primary hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
+      className="w-full p-3 cursor-pointer rounded-full text-xl font-medium text-black bg-primary hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:opacity-50"
     >
       {children}
     </button>
