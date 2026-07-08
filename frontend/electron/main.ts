@@ -218,13 +218,16 @@ function createWindow() {
     // tema oscuro: sin esto, Electron pinta la ventana en blanco por defecto
     // hasta que el renderer termina de montar y aplicar sus estilos.
     backgroundColor: '#171717',
-    // La columna de contenido tiene max-w-3xl (768px): con 1200x860 sobraban
-    // ~200px vacíos a cada lado y la mayoría de páginas (908-998px de alto)
-    // no cabían sin scroll. 900x1000 deja un margen lateral razonable y
-    // solo la página más alta (Imágenes a video, ~998px) sigue necesitando
-    // scroll, mucho menos que antes.
-    width: 900,
-    height: 1000,
+    // La columna de contenido tiene max-w-3xl (768px, fijo). 820 de ancho
+    // deja solo ~18px de margen a cada lado (antes 900 dejaba ~58px, y 1200
+    // casi 200px). 980 de alto es a propósito conservador: en monitores
+    // normales (comprobado uno de 1680x1050) el área de trabajo real ronda
+    // solo ~1000px una vez descontada la barra de tareas, así que pedir más
+    // altura solo hace que Windows recorte la ventana igualmente. Con el
+    // espaciado de Panel ya ajustado, incluso la página más alta (Imágenes
+    // a video) solo necesita un scroll mínimo en vez de los ~200px de antes.
+    width: 820,
+    height: 980,
     minWidth: 700,
     minHeight: 600,
     webPreferences: {
