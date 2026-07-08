@@ -218,8 +218,15 @@ function createWindow() {
     // tema oscuro: sin esto, Electron pinta la ventana en blanco por defecto
     // hasta que el renderer termina de montar y aplicar sus estilos.
     backgroundColor: '#171717',
-    width: 1200,
-    height: 860,
+    // La columna de contenido tiene max-w-3xl (768px): con 1200x860 sobraban
+    // ~200px vacíos a cada lado y la mayoría de páginas (908-998px de alto)
+    // no cabían sin scroll. 900x1000 deja un margen lateral razonable y
+    // solo la página más alta (Imágenes a video, ~998px) sigue necesitando
+    // scroll, mucho menos que antes.
+    width: 900,
+    height: 1000,
+    minWidth: 700,
+    minHeight: 600,
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
     },
