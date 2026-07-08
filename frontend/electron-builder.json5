@@ -19,8 +19,8 @@
   // build-backend.cjs necesita generalizarse primero.
   "extraResources": [
     {
-      "from": "backend-dist/ffmpeg-cli-bridge.exe",
-      "to": "logic/ffmpeg-cli-bridge.exe"
+      "from": "backend-dist/ffmpeg-cli-bridge",
+      "to": "logic/ffmpeg-cli-bridge"
     }
   ],
   "win": {

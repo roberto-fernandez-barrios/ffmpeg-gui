@@ -43,8 +43,15 @@ function main() {
   const args = [
     '-m',
     'PyInstaller',
-    '--onefile',
+    // --onedir (por defecto, sin --onefile): el .exe de una sola pieza se
+    // autodescomprime en memoria al arrancar, que es justo el patrón que
+    // más disparan los antivirus por heurística. Una carpeta con los
+    // archivos sueltos genera muchos menos falsos positivos.
     '--noconsole',
+    // -y: en modo --onedir, PyInstaller rechaza reescribir un directorio de
+    // salida no vacío (a diferencia de --onefile); necesario para builds
+    // repetidos sin borrar backend-dist/ a mano cada vez.
+    '-y',
     '--name',
     'ffmpeg-cli-bridge',
     '--distpath',
@@ -64,13 +71,14 @@ function main() {
     process.exit(result.status ?? 1)
   }
 
-  const exePath = path.join(DIST_DIR, 'ffmpeg-cli-bridge.exe')
+  const exeDir = path.join(DIST_DIR, 'ffmpeg-cli-bridge')
+  const exePath = path.join(exeDir, 'ffmpeg-cli-bridge.exe')
   if (!fs.existsSync(exePath)) {
     console.error(`PyInstaller terminó sin errores pero no se encontró el ejecutable esperado en ${exePath}`)
     process.exit(1)
   }
 
-  console.log(`Backend empaquetado en: ${exePath}`)
+  console.log(`Backend empaquetado en: ${exeDir}`)
 }
 
 main()

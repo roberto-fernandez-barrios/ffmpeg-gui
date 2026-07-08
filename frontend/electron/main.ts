@@ -29,11 +29,13 @@ let win: BrowserWindow | null
 // En desarrollo se ejecuta logic/cli.py con el intérprete de Python del
 // sistema. En un build empaquetado (electron-builder) se usa en su lugar el
 // ejecutable independiente generado por scripts/build-backend.cjs vía
-// PyInstaller, incluido como extraResource — así el usuario final no necesita
-// tener Python instalado (sí necesita ffmpeg/ffprobe en el PATH).
+// PyInstaller (modo --onedir: una carpeta, no un solo .exe, para no disparar
+// heurísticas de antivirus), incluido como extraResource — así el usuario
+// final no necesita tener Python instalado (sí necesita ffmpeg/ffprobe en el
+// PATH).
 const BACKEND_DIR = path.join(process.env.APP_ROOT, '..', 'logic')
 const CLI_PATH = path.join(BACKEND_DIR, 'cli.py')
-const BUNDLED_CLI_PATH = path.join(process.resourcesPath, 'logic', 'ffmpeg-cli-bridge.exe')
+const BUNDLED_CLI_PATH = path.join(process.resourcesPath, 'logic', 'ffmpeg-cli-bridge', 'ffmpeg-cli-bridge.exe')
 
 function resolvePythonExecutable(): string {
   const candidates = ['python', 'python3', 'py']
