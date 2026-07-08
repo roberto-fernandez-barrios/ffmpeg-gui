@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Panel } from '../components/Panel'
 import { VideoPicker, AudioPicker } from '../components/FilePicker'
-import { SelectField, SubmitButton } from '../components/fields'
-import { TaskList } from '../components/TaskList'
+import { SelectField } from '../components/fields'
+import { OperationForm } from '../components/OperationForm'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { baseName } from '../dragDrop'
 
@@ -43,31 +43,27 @@ export default function EditAudio() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-        <Panel title="Seleccionar video">
-          <VideoPicker label="Video" value={video} onSelect={setVideo} />
-        </Panel>
+    <OperationForm
+      onSubmit={handleSubmit}
+      submitLabel="Procesar"
+      canSubmit={canSubmit}
+      disabledHint={!video ? 'Selecciona un video primero.' : 'Selecciona un archivo de audio.'}
+      tasks={tasks}
+      onCancel={cancel}
+    >
+      <Panel title="Seleccionar video">
+        <VideoPicker label="Video" value={video} onSelect={setVideo} />
+      </Panel>
 
-        <Panel title="Operación de edición de audio">
-          <SelectField
-            label="Selecciona la operación"
-            value={operationLabel}
-            onChange={setOperationLabel}
-            options={Object.keys(OPERATIONS)}
-          />
-          {needsAudio && <AudioPicker label="Audio" value={audio} onSelect={setAudio} />}
-        </Panel>
-
-        <SubmitButton disabled={!canSubmit}>Procesar</SubmitButton>
-        {!canSubmit && (
-          <p className="text-sm text-neutral-400 -mt-2">
-            {!video ? 'Selecciona un video primero.' : 'Selecciona un archivo de audio.'}
-          </p>
-        )}
-      </form>
-
-      <TaskList tasks={tasks} onCancel={cancel} />
-    </div>
+      <Panel title="Operación de edición de audio">
+        <SelectField
+          label="Selecciona la operación"
+          value={operationLabel}
+          onChange={setOperationLabel}
+          options={Object.keys(OPERATIONS)}
+        />
+        {needsAudio && <AudioPicker label="Audio" value={audio} onSelect={setAudio} />}
+      </Panel>
+    </OperationForm>
   )
 }

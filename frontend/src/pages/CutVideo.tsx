@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Panel } from '../components/Panel'
 import { VideoPicker } from '../components/FilePicker'
-import { TextField, NumberField, SelectField, SubmitButton } from '../components/fields'
-import { TaskList } from '../components/TaskList'
+import { TextField, NumberField, SelectField } from '../components/fields'
+import { OperationForm } from '../components/OperationForm'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { baseName } from '../dragDrop'
 
@@ -43,40 +43,40 @@ export default function CutVideo() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-        <Panel title="Seleccionar video">
-          <VideoPicker label="Video" value={video} onSelect={setVideo} />
-        </Panel>
+    <OperationForm
+      onSubmit={handleSubmit}
+      submitLabel="Cortar Video"
+      canSubmit={Boolean(video)}
+      disabledHint="Selecciona un video primero."
+      tasks={tasks}
+      onCancel={cancel}
+    >
+      <Panel title="Seleccionar video">
+        <VideoPicker label="Video" value={video} onSelect={setVideo} />
+      </Panel>
 
-        <Panel title="Parámetros de corte">
-          <SelectField label="Modo de corte" value={modeLabel} onChange={setModeLabel} options={['Frames', 'Tiempo']} />
-          <TextField
-            label={cutMode === 'time' ? 'Inicio (segundos o hh:mm:ss)' : 'Inicio (frames)'}
-            value={start}
-            onChange={setStart}
-          />
-          {cutMode === 'frames' && <TextField label="FPS (del video de entrada)" value={fps} onChange={setFps} />}
-          <TextField
-            label={cutMode === 'time' ? 'Duración (segundos, opcional)' : 'Cantidad de frames (opcional)'}
-            value={duration}
-            onChange={setDuration}
-          />
-          {cutMode === 'time' && (
-            <TextField label="Tiempo final (opcional)" value={endTime} onChange={setEndTime} />
-          )}
-        </Panel>
+      <Panel title="Parámetros de corte">
+        <SelectField label="Modo de corte" value={modeLabel} onChange={setModeLabel} options={['Frames', 'Tiempo']} />
+        <TextField
+          label={cutMode === 'time' ? 'Inicio (segundos o hh:mm:ss)' : 'Inicio (frames)'}
+          value={start}
+          onChange={setStart}
+        />
+        {cutMode === 'frames' && <TextField label="FPS (del video de entrada)" value={fps} onChange={setFps} />}
+        <TextField
+          label={cutMode === 'time' ? 'Duración (segundos, opcional)' : 'Cantidad de frames (opcional)'}
+          value={duration}
+          onChange={setDuration}
+        />
+        {cutMode === 'time' && (
+          <TextField label="Tiempo final (opcional)" value={endTime} onChange={setEndTime} />
+        )}
+      </Panel>
 
-        <Panel title="Fundidos a negro">
-          <NumberField label="Fade in al inicio (segundos)" value={fadeIn} onChange={setFadeIn} min={0} />
-          <NumberField label="Fade out al final (segundos)" value={fadeOut} onChange={setFadeOut} min={0} />
-        </Panel>
-
-        <SubmitButton disabled={!video}>Cortar Video</SubmitButton>
-        {!video && <p className="text-sm text-neutral-400 -mt-2">Selecciona un video primero.</p>}
-      </form>
-
-      <TaskList tasks={tasks} onCancel={cancel} />
-    </div>
+      <Panel title="Fundidos a negro">
+        <NumberField label="Fade in al inicio (segundos)" value={fadeIn} onChange={setFadeIn} min={0} />
+        <NumberField label="Fade out al final (segundos)" value={fadeOut} onChange={setFadeOut} min={0} />
+      </Panel>
+    </OperationForm>
   )
 }

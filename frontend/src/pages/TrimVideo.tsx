@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Panel } from '../components/Panel'
 import { VideoPicker } from '../components/FilePicker'
-import { NumberField, SubmitButton } from '../components/fields'
-import { TaskList } from '../components/TaskList'
+import { NumberField } from '../components/fields'
+import { OperationForm } from '../components/OperationForm'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { baseName } from '../dragDrop'
 
@@ -34,29 +34,29 @@ export default function TrimVideo() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
-        <Panel title="Seleccionar video">
-          <VideoPicker label="Video de entrada" value={video} onSelect={setVideo} />
-        </Panel>
+    <OperationForm
+      onSubmit={handleSubmit}
+      submitLabel="Recortar Video"
+      canSubmit={Boolean(video)}
+      disabledHint="Selecciona un video primero."
+      tasks={tasks}
+      onCancel={cancel}
+    >
+      <Panel title="Seleccionar video">
+        <VideoPicker label="Video de entrada" value={video} onSelect={setVideo} />
+      </Panel>
 
-        <Panel title="Parámetros de recorte">
-          <NumberField label="Recortar arriba (px)" value={top} onChange={setTop} min={0} />
-          <NumberField label="Recortar abajo (px)" value={bottom} onChange={setBottom} min={0} />
-          <NumberField label="Recortar izquierda (px)" value={left} onChange={setLeft} min={0} />
-          <NumberField label="Recortar derecha (px)" value={right} onChange={setRight} min={0} />
-        </Panel>
+      <Panel title="Parámetros de recorte">
+        <NumberField label="Recortar arriba (px)" value={top} onChange={setTop} min={0} />
+        <NumberField label="Recortar abajo (px)" value={bottom} onChange={setBottom} min={0} />
+        <NumberField label="Recortar izquierda (px)" value={left} onChange={setLeft} min={0} />
+        <NumberField label="Recortar derecha (px)" value={right} onChange={setRight} min={0} />
+      </Panel>
 
-        <Panel title="Fundidos a negro">
-          <NumberField label="Fade in al inicio (segundos)" value={fadeIn} onChange={setFadeIn} min={0} />
-          <NumberField label="Fade out al final (segundos)" value={fadeOut} onChange={setFadeOut} min={0} />
-        </Panel>
-
-        <SubmitButton disabled={!video}>Recortar Video</SubmitButton>
-        {!video && <p className="text-sm text-neutral-400 -mt-2">Selecciona un video primero.</p>}
-      </form>
-
-      <TaskList tasks={tasks} onCancel={cancel} />
-    </div>
+      <Panel title="Fundidos a negro">
+        <NumberField label="Fade in al inicio (segundos)" value={fadeIn} onChange={setFadeIn} min={0} />
+        <NumberField label="Fade out al final (segundos)" value={fadeOut} onChange={setFadeOut} min={0} />
+      </Panel>
+    </OperationForm>
   )
 }
