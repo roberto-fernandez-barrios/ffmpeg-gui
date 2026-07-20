@@ -2,6 +2,8 @@
   "name": "ffmpeg-gui",
   "private": true,
   "version": "1.0.0",
+  "description": "Interfaz gráfica para FFmpeg: convertir secuencias de imágenes a vídeo, editar audio, cortar, escalar, recortar y unir vídeos.",
+  "author": "Roberto Fernández",
   "type": "module",
   "scripts": {
     "dev": "vite",
