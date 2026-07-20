@@ -109,6 +109,8 @@ npm run build  # instalador .exe, ver sección de empaquetado arriba
 
 Al arrancar, la app comprueba que `ffmpeg`/`ffprobe` estén en el `PATH` y muestra un aviso en la interfaz si faltan, en vez de fallar en silencio en cada conversión. Más detalles en `frontend/README.md`.
 
+> **Rutas con acentos / `ñ` (codificación UTF-8).** El frontend Electron envía la petición a `logic/cli.py` como JSON codificado en **UTF-8** por `stdin`. En Windows, `sys.stdin`/`sys.stdout` usan por defecto la codificación local (cp1252), lo que corrompía los caracteres no ASCII de las rutas (p. ej. `CAMPAÑAS` se convertía en `CAMPAÃ'AS` y provocaba un error *"no se encuentra la ruta especificada"* `[WinError 3]`). Por eso `logic/cli.py` fuerza UTF-8 en ambos flujos al arrancar (`sys.stdin/stdout.reconfigure(encoding="utf-8")`). **Si modificas el puente, recuerda regenerar el ejecutable empaquetado** con `npm run build:backend` (o `npm run build`), ya que la app empaquetada usa el `.exe` de `frontend/backend-dist/`, no el `cli.py` del repositorio.
+
 ---
 
 ## ✅ Pruebas

@@ -23,6 +23,17 @@ import json
 import threading
 import subprocess
 
+# El frontend (Electron/Node) escribe la peticion JSON en stdin codificada como
+# UTF-8. En Windows, sys.stdin/stdout usan por defecto la codificacion local
+# (cp1252), lo que corrompe caracteres no ASCII de las rutas (p.ej. la "N" de
+# CAMPANAS se convertia en "A'"), provocando errores "no se encuentra la ruta".
+# Forzamos UTF-8 en ambos streams para leer y escribir sin perdidas.
+for _stream in (sys.stdin, sys.stdout):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 import ffmpeg_logic as logic
 
 CREATE_NO_WINDOW = 0x08000000 if sys.platform.startswith("win") else 0
